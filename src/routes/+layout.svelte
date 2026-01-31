@@ -1,0 +1,29 @@
+<script lang="ts">
+	import '../app.css';
+	import { uiStore } from '$lib/stores/uiStore';
+	import ToastContainer from '$lib/components/ui/ToastContainer.svelte';
+
+	let { children } = $props();
+</script>
+
+<svelte:head>
+	<title>AI Chat Application</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</svelte:head>
+
+<div class="app-root h-screen overflow-hidden">
+	{@render children()}
+</div>
+
+<ToastContainer />
+
+<style>
+	:global(html, body) {
+		height: 100%;
+		overflow: hidden;
+		margin: 0;
+		padding: 0;
+	}
+</style>
