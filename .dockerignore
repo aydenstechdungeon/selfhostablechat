@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+build
+.svelte-kit
+.vercel
+.netlify
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Data directory (will be mounted as volume)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Testing
+coverage
+
+# Misc
+README.md
+screenshots
+.git
+.gitignore
+.github
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Tauri (built separately)
+src-tauri/target
+src-tauri/gen

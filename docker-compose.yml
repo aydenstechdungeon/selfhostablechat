@@ -1,0 +1,19 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: selfhostablechat
+    network_mode: host
+    environment:
+      - NODE_ENV=production
+      - PORT=3420
+      - HOST=0.0.0.0
+      - OPENROUTER_API_URL=${OPENROUTER_API_URL:-https://openrouter.ai/api/v1}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3420/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
