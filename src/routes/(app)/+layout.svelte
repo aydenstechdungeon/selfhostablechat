@@ -106,11 +106,11 @@
 			}
 		};
 		mediaQuery.addEventListener('change', handler);
-		
+
 		// Add resize event listeners
 		document.addEventListener('mousemove', handleResize);
 		document.addEventListener('mouseup', stopResize);
-		
+
 		// Listen for message stats event to open stats modal
 		const handleOpenStats = (e: CustomEvent) => {
 			if (e.detail?.messageId) {
@@ -118,13 +118,25 @@
 			}
 		};
 		window.addEventListener('open-message-stats', handleOpenStats as EventListener);
-		
+
 		// Subscribe to background chat completion notifications
 		// Shows toast when a chat completes in the background (not the active chat)
 		const unsubscribeBackgroundComplete = streamingStore.onBackgroundComplete((chatId, chatName) => {
 			toastStore.show(`"${chatName}" finished generating`, 'success');
 		});
-		
+
+		// Check for chats that were interrupted by page refresh
+		// These are chats that were streaming but lost connection when page was refreshed
+		const interruptedChats = streamingStore.getAllStreamingChats();
+		if (interruptedChats.length > 0) {
+			interruptedChats.forEach(({ chatId, state }) => {
+				// Mark as completed with interruption notice
+				// The user can reload the chat to see the partial content that was auto-saved
+				toastStore.show(`"${state.chatName}" was interrupted by page refresh. Partial content saved.`, 'info');
+				streamingStore.completeStreaming(chatId, state.chatName);
+			});
+		}
+
 		return () => {
 			mediaQuery.removeEventListener('change', handler);
 			document.removeEventListener('mousemove', handleResize);

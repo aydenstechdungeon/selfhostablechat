@@ -379,13 +379,13 @@ const createChatStore = () => {
     setActiveChat: (chatId: string) => update(state => {
       // Check if this chat is currently streaming to preserve that state
       const isCurrentlyStreaming = streamingStore.isChatStreaming(chatId);
-      
+
       // If switching to a chat that is streaming in the background,
       // retrieve the abortController from streamingStore so the user can stop it
-      const abortController = isCurrentlyStreaming 
+      const abortController = isCurrentlyStreaming
         ? (streamingStore.getAbortController(chatId) || null)
         : null;
-      
+
       return {
         ...state,
         activeChatId: chatId,

@@ -57,35 +57,81 @@
   // Only show visible chats
   let visibleChats = $derived(filteredChats.slice(0, visibleCount));
   
-  async function loadChats() {
-    isLoading = true;
+  // Track if this is the initial load vs an update
+  let isInitialLoad = $state(true);
+  // Track previous chat count to detect meaningful changes
+  let previousChatCount = $state(0);
+  // Track if a chat was just completed (to avoid flicker)
+  let justCompletedChat = $state(false);
+
+  async function loadChats(preserveScroll = false) {
+    if (isInitialLoad) {
+      isLoading = true;
+    }
     try {
-      allChats = await chatDB.getAllChats();
+      const newChats = await chatDB.getAllChats();
+      const newCount = newChats.length;
+
+      // Detect if this is just a completion update (same count but state change)
+      // vs a meaningful change (new chat added, chat deleted)
+      const isMeaningfulChange = newCount !== previousChatCount;
+
+      // Always update the chats list
+      allChats = newChats;
+      previousChatCount = newCount;
+
+      // If we have a scroll container and want to preserve scroll position
+      if (preserveScroll && scrollContainer && !isMeaningfulChange && !justCompletedChat) {
+        // Don't reset scroll position for streaming state updates
+      }
     } catch (error) {
       console.error('Failed to load chats:', error);
     } finally {
       isLoading = false;
+      isInitialLoad = false;
     }
   }
-  
+
   onMount(() => {
     loadChats();
+
     // Listen for chat updates from other components
     // Use a debounced reload to prevent rapid re-renders during streaming
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastUpdateTime = 0;
+
     const handleChatUpdate = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
+      const now = Date.now();
+      // Prevent updates more frequently than every 250ms
+      // This eliminates flicker during streaming completion
+      if (now - lastUpdateTime < 250) {
+        if (debounceTimer) clearTimeout(debounceTimer);
+      }
+      lastUpdateTime = now;
+
       debounceTimer = setTimeout(() => {
-        loadChats();
-      }, 100);
+        // Check if any chat just completed streaming
+        const hadActiveStreams = Array.from($streamingStore.streamingChats.values())
+          .some(s => !s.isStreaming && s.completedAt);
+        justCompletedChat = hadActiveStreams;
+
+        // Use silent update - don't reset scroll position
+        loadChats(true);
+
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          justCompletedChat = false;
+        }, 500);
+      }, 250); // Longer debounce to batch rapid updates
     };
+
     window.addEventListener('chat-updated', handleChatUpdate);
-    
+
     // Set up intersection observer for infinite scroll
     if (scrollContainer) {
       setupIntersectionObserver();
     }
-    
+
     return () => {
       window.removeEventListener('chat-updated', handleChatUpdate);
       if (debounceTimer) clearTimeout(debounceTimer);
@@ -182,9 +228,11 @@
   let textSecondary = $derived(theme === 'light' ? '#718096' : '#718096');
   let activeBg = $derived(theme === 'light' ? '#f3f4f6' : '#2d3748');
   let hoverBg = $derived(theme === 'light' ? '#f3f4f6' : '#2d3748');
-  
+
   // Track streaming state for each chat
   let streamingChats = $derived($streamingStore.streamingChats);
+  // Track if any chat is currently streaming (to disable animations)
+  let isAnyChatStreaming = $derived(Array.from(streamingChats.values()).some(s => s.isStreaming));
   
   function selectChat(chatId: string) {
     // Clear new messages indicator when selecting chat
@@ -216,9 +264,10 @@
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="chat-row w-full flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 mb-1 group animate-fade-in-up hover:translate-x-1"
+        class="chat-row w-full flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 mb-1 group hover:translate-x-1"
+        class:animate-fade-in-up={!isAnyChatStreaming && isInitialLoad}
         style:background-color={activeChatId === chat.id ? activeBg : 'transparent'}
-        style:animation-delay="{index * 0.03}s"
+        style:animation-delay={!isAnyChatStreaming && isInitialLoad ? `${index * 0.03}s` : '0s'}
         onmouseenter={(e) => activeChatId !== chat.id && (e.currentTarget.style.backgroundColor = hoverBg)}
         onmouseleave={(e) => activeChatId !== chat.id && (e.currentTarget.style.backgroundColor = 'transparent')}
         onclick={() => selectChat(chat.id)}
