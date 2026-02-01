@@ -8,6 +8,7 @@
 	import { chatDB } from '$lib/stores/indexedDB';
 	import { apiKeyStore } from '$lib/stores/apiKeyStore';
 	import { uiStore } from '$lib/stores/uiStore';
+	import { streamingStore } from '$lib/stores/streamingStore';
 	import { goto } from '$app/navigation';
 	import { AlertTriangle, Upload } from 'lucide-svelte';
 	import { MAX_FILE_SIZE, ALL_SUPPORTED_TYPES } from '$lib/types';
@@ -28,6 +29,7 @@
 	$effect(() => {
 		if (chatId) {
 			loadChat(chatId);
+			streamingStore.setActiveChat(chatId);
 		}
 	});
 	
@@ -35,11 +37,12 @@
 		// Check if chat exists in IndexedDB
 		const chat = await chatDB.getChat(id);
 		if (chat) {
-			// Load existing chat
+			// Load existing chat - loadChat sets activeChatId and preserves streaming state
 			await chatStore.loadChat(id);
 		} else {
-			// Create new chat
+			// Create new chat - createChat doesn't set active, so we set it
 			await chatStore.createChat(id, 'New Chat');
+			// Use setActiveChat which now preserves streaming state if this chat is generating
 			chatStore.setActiveChat(id);
 		}
 	}

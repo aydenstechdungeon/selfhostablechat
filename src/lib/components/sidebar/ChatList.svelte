@@ -4,22 +4,46 @@
   import { uiStore } from '$lib/stores/uiStore';
   import { formatRelativeTime } from '$lib/utils/helpers';
   import { chatDB, type StoredChat } from '$lib/stores/indexedDB';
-  import { onMount } from 'svelte';
-  import { Trash2 } from 'lucide-svelte';
+  import { now } from '$lib/stores/timeStore';
+  import { onMount, onDestroy } from 'svelte';
+  import { Trash2, Loader2 } from 'lucide-svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
+	import { filterStore, filterAndSortChats, formatCost } from '$lib/stores/filterStore';
+	import { streamingStore } from '$lib/stores/streamingStore';
 	
+	// Props
 	let { searchQuery = '' }: { searchQuery: string } = $props();
+  
   let theme = $derived($uiStore.theme);
-  let chats: StoredChat[] = $state([]);
+  let allChats: StoredChat[] = $state([]);
   let isLoading = $state(true);
+  let filters = $derived($filterStore);
+  
+  // Filtered and sorted chats - must be declared before hasMore
+  let filteredChats = $derived(filterAndSortChats(allChats, filters));
+  
+  // Pagination state
+  const CHATS_PER_PAGE = 20;
+  let visibleCount = $state(CHATS_PER_PAGE);
+  let isLoadingMore = $state(false);
+  let hasMore = $derived(visibleCount < filteredChats.length);
+  let scrollContainer: HTMLDivElement | null = $state(null);
   
   let deleteModalOpen = $state(false);
   let chatToDelete: string | null = $state(null);
   
+  // Update search query in filter store
+  $effect(() => {
+    filterStore.setSearchQuery(searchQuery);
+  });
+  
+  // Only show visible chats
+  let visibleChats = $derived(filteredChats.slice(0, visibleCount));
+  
   async function loadChats() {
     isLoading = true;
     try {
-      chats = await chatDB.getAllChats();
+      allChats = await chatDB.getAllChats();
     } catch (error) {
       console.error('Failed to load chats:', error);
     } finally {
@@ -32,20 +56,74 @@
     // Listen for chat updates from other components
     const handleChatUpdate = () => loadChats();
     window.addEventListener('chat-updated', handleChatUpdate);
-    return () => window.removeEventListener('chat-updated', handleChatUpdate);
+    
+    // Set up intersection observer for infinite scroll
+    if (scrollContainer) {
+      setupIntersectionObserver();
+    }
+    
+    return () => {
+      window.removeEventListener('chat-updated', handleChatUpdate);
+      if (observer) {
+        observer.disconnect();
+      }
+    };
   });
   
-  let filteredChats = $derived(
-    chats.filter(chat => 
-      chat.title.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  );
+  // Intersection Observer for infinite scroll
+  let observer: IntersectionObserver | null = null;
+  let loadMoreTrigger: HTMLDivElement | null = $state(null);
+  
+  function setupIntersectionObserver() {
+    if (!loadMoreTrigger) return;
+    
+    observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && hasMore && !isLoadingMore) {
+            loadMore();
+          }
+        });
+      },
+      {
+        root: scrollContainer,
+        rootMargin: '100px', // Start loading before reaching the bottom
+        threshold: 0
+      }
+    );
+    
+    observer.observe(loadMoreTrigger);
+  }
+  
+  // Re-setup observer when loadMoreTrigger changes
+  $effect(() => {
+    if (loadMoreTrigger && observer) {
+      observer.disconnect();
+      setupIntersectionObserver();
+    }
+  });
+  
+  async function loadMore() {
+    if (isLoadingMore || !hasMore) return;
+    
+    isLoadingMore = true;
+    
+    // Simulate a small delay for smooth UX
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    visibleCount += CHATS_PER_PAGE;
+    isLoadingMore = false;
+  }
+  
+  // Reset visible count when filters change
+  $effect(() => {
+    // Reset to first page when filters change
+    visibleCount = CHATS_PER_PAGE;
+  });
   
   let activeChatId = $derived($page.params.id);
   
-  function selectChat(chatId: string) {
-    goto(`/chat/${chatId}`);
-  }
+
   
   function openDeleteModal(chatId: string, event: MouseEvent) {
     event.stopPropagation();
@@ -79,23 +157,36 @@
   let textSecondary = $derived(theme === 'light' ? '#718096' : '#718096');
   let activeBg = $derived(theme === 'light' ? '#f3f4f6' : '#2d3748');
   let hoverBg = $derived(theme === 'light' ? '#f3f4f6' : '#2d3748');
+  
+  // Track streaming state for each chat
+  let streamingChats = $derived($streamingStore.streamingChats);
+  
+  function selectChat(chatId: string) {
+    // Clear new messages indicator when selecting chat
+    streamingStore.clearNewMessages(chatId);
+    goto(`/chat/${chatId}`);
+  }
 </script>
 
-<div class="chat-list flex-1 overflow-y-auto px-2 py-2">
+<div 
+  bind:this={scrollContainer}
+  class="chat-list flex-1 overflow-y-auto px-2 py-2"
+>
   {#if isLoading}
     <div class="text-center py-8 text-sm" style:color={textSecondary}>
       Loading chats...
     </div>
   {:else if filteredChats.length === 0}
     <div class="text-center py-8 text-sm" style:color={textSecondary}>
-      {#if searchQuery}
-        No chats found
+      {#if searchQuery || filters.dateRange !== 'all' || filters.minCost !== null || filters.maxCost !== null || filters.selectedModels.length > 0}
+        No chats match your filters
       {:else}
         No chats yet. Start a new conversation!
       {/if}
     </div>
   {:else}
-    {#each filteredChats as chat, index (chat.id)}
+    {#each visibleChats as chat, index (chat.id)}
+      {@const chatStreamState = streamingChats.get(chat.id)}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
@@ -111,15 +202,26 @@
             <h4 class="chat-title text-sm font-semibold truncate" style:color={textPrimary}>
               {chat.title}
             </h4>
+            {#if chatStreamState?.isStreaming}
+              <span 
+                class="w-2 h-2 rounded-full bg-blue-500 animate-pulse flex-shrink-0"
+                title="Generating..."
+              ></span>
+            {:else if chatStreamState?.hasNewMessages}
+              <span 
+                class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"
+                title="New messages"
+              ></span>
+            {/if}
           </div>
           <p class="chat-preview text-xs truncate" style:color={textSecondary}>
-            {chat.messageCount} messages · ${chat.totalCost.toFixed(2)}
+            {chat.messageCount} messages · {formatCost(chat.totalCost)}
           </p>
         </div>
 
         <div class="row-right flex-shrink-0 flex items-center gap-2">
           <span class="timestamp text-[11px] whitespace-nowrap" style:color={textSecondary}>
-            {formatRelativeTime(new Date(chat.updatedAt))}
+            {$now && formatRelativeTime(new Date(chat.updatedAt))}
           </span>
           <button
             class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all duration-200 hover:text-red-500 hover:bg-red-500/10 hover:scale-110 active:scale-95"
@@ -132,6 +234,27 @@
         </div>
       </div>
     {/each}
+    
+    <!-- Load more trigger element -->
+    <div 
+      bind:this={loadMoreTrigger}
+      class="load-more-trigger h-16 flex items-center justify-center"
+    >
+      {#if isLoadingMore}
+        <div class="flex items-center gap-2" style:color={textSecondary}>
+          <Loader2 size={16} class="animate-spin" />
+          <span class="text-xs">Loading more...</span>
+        </div>
+      {:else if hasMore}
+        <div class="text-xs" style:color={textSecondary}>
+          Scroll for more ({filteredChats.length - visibleCount} remaining)
+        </div>
+      {:else if filteredChats.length > CHATS_PER_PAGE}
+        <div class="text-xs" style:color={textSecondary}>
+          Showing all {filteredChats.length} chats
+        </div>
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -145,3 +268,21 @@
   onConfirm={confirmDelete}
   onCancel={closeDeleteModal}
 />
+
+<style>
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in-up {
+    animation: fadeInUp 0.3s ease-out forwards;
+    opacity: 0;
+  }
+</style>

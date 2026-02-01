@@ -2,6 +2,8 @@
 	import { uiStore } from '$lib/stores/uiStore';
 	import { statsStore } from '$lib/stores/statsStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
+	import { streamingStore } from '$lib/stores/streamingStore';
+	import { toastStore } from '$lib/stores/toastStore';
 	import ChatSidebar from '$lib/components/sidebar/ChatSidebar.svelte';
 	import { onMount } from 'svelte';
 	
@@ -117,11 +119,18 @@
 		};
 		window.addEventListener('open-message-stats', handleOpenStats as EventListener);
 		
+		// Subscribe to background chat completion notifications
+		// Shows toast when a chat completes in the background (not the active chat)
+		const unsubscribeBackgroundComplete = streamingStore.onBackgroundComplete((chatId, chatName) => {
+			toastStore.show(`"${chatName}" finished generating`, 'success');
+		});
+		
 		return () => {
 			mediaQuery.removeEventListener('change', handler);
 			document.removeEventListener('mousemove', handleResize);
 			document.removeEventListener('mouseup', stopResize);
 			window.removeEventListener('open-message-stats', handleOpenStats as EventListener);
+			unsubscribeBackgroundComplete();
 		};
 	});
 </script>

@@ -190,7 +190,8 @@
 					updatedAt: new Date(),
 					messageCount: chatData.messageCount || 0,
 					totalCost: chatData.totalCost || 0,
-					totalTokens: chatData.totalTokens || 0
+					totalTokens: chatData.totalTokens || 0,
+					models: chatData.models || []
 				});
 				
 				// Save messages with new IDs
@@ -283,7 +284,8 @@
 					updatedAt: new Date(chatData.updatedAt),
 					messageCount: chatData.messageCount || 0,
 					totalCost: chatData.totalCost || 0,
-					totalTokens: chatData.totalTokens || 0
+					totalTokens: chatData.totalTokens || 0,
+					models: chatData.models || []
 				});
 				
 				// Save messages

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { Send, X, Paperclip, Square, Sparkles, FileText, Music, Film, File as FileIcon } from 'lucide-svelte';
-	import { chatStore, isStreaming } from '$lib/stores/chatStore';
+	import { chatStore } from '$lib/stores/chatStore';
+	import { streamingStore } from '$lib/stores/streamingStore';
 	import { uiStore } from '$lib/stores/uiStore';
 	import { modelStore, isImageGenerationModel } from '$lib/stores/modelStore';
 	import { toastStore } from '$lib/stores/toastStore';
@@ -21,7 +22,21 @@
 	let theme = $derived($uiStore.theme);
 	let attachedFiles = $state<Array<{ type: 'image' | 'video' | 'document' | 'audio' | 'file'; url: string; name: string; mimeType: string; size: number }>>([]);
 	let fileInput: HTMLInputElement | undefined = $state(undefined);
-	let isStreamingState = $derived($isStreaming);
+	
+	// Get current chat ID from page params only
+	// Don't use activeChatId from store to avoid conflicts with background generating chats
+	// When on /chat/new, currentChatId should be undefined (no chat yet)
+	let currentChatId = $derived($page.params.id);
+	
+	// Use conversation-level streaming state instead of global lock
+	// This allows inputs in other chats to remain functional during generation
+	// For new chats (/chat/new), always allow input - no global lock
+	// For existing chats, only lock if THIS specific chat is generating
+	let isStreamingState = $derived(
+		currentChatId
+			? ($streamingStore.streamingChats.get(currentChatId)?.isStreaming || false)
+			: false
+	);
 	
 	// Image modal state
 	let selectedImageUrl = $state<string | null>(null);

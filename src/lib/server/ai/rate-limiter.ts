@@ -121,9 +121,13 @@ export function checkRateLimit(userId: string | number): { allowed: boolean; rem
   }
 
   const globalCheck = globalRateLimiter.check('global');
-  
+
   if (!globalCheck.allowed) {
-    userRateLimiter.check(userKey);
+    // Rollback the user rate limit check since global limit is exceeded
+    const userEntry = userRateLimiter['limits'].get(userKey);
+    if (userEntry) {
+      userEntry.count--;
+    }
     return globalCheck;
   }
 

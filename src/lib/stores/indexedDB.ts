@@ -1,7 +1,7 @@
 import type { Chat, Message, MessageStats, MessageBranch } from '../types';
 
 const DB_NAME = 'AIChatDB';
-const DB_VERSION = 4; // Incremented to trigger index migration
+const DB_VERSION = 5; // Incremented to add models field
 
 interface StoredChat {
   id: string;
@@ -12,6 +12,7 @@ interface StoredChat {
   messageCount: number;
   totalCost: number;
   totalTokens: number;
+  models: string[]; // Track which models were used in this chat
 }
 
 interface StoredMessage {
@@ -317,12 +318,21 @@ class ChatDatabase {
     });
   }
 
-  async updateChatStats(chatId: string, stats: { messageCount: number; totalCost: number; totalTokens: number }): Promise<void> {
+  async updateChatStats(
+    chatId: string,
+    stats: { messageCount: number; totalCost: number; totalTokens: number; models?: string[] }
+  ): Promise<void> {
     const chat = await this.getChat(chatId);
     if (chat) {
       chat.messageCount = stats.messageCount;
       chat.totalCost = stats.totalCost;
       chat.totalTokens = stats.totalTokens;
+      if (stats.models) {
+        // Merge new models with existing ones, keeping unique values
+        // Handle case where chat.models might be undefined (old data)
+        const existingModels = chat.models || [];
+        chat.models = [...new Set([...existingModels, ...stats.models])];
+      }
       chat.updatedAt = new Date();
       await this.saveChat(chat);
     }

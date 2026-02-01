@@ -71,8 +71,8 @@ const createSystemPromptStore = () => {
     }),
     reset: () => {
       const defaultState: SystemPromptState = {
-        prompt: '',
-        isEnabled: false
+        prompt: DEFAULT_SYSTEM_PROMPT,
+        isEnabled: true
       };
       set(defaultState);
       saveToStorage(defaultState);

@@ -7,6 +7,7 @@ import { systemPromptStore } from './systemPromptStore';
 import { toastStore } from './toastStore';
 import { modelStore } from './modelStore';
 import { settingsStore } from './settingsStore';
+import { streamingStore } from './streamingStore';
 import { debounce } from '$lib/utils/helpers';
 
 // Batch update utility for streaming performance
@@ -36,6 +37,8 @@ function createBatchedUpdater<T>(updateFn: (update: Partial<T>) => void, delay: 
 interface ChatState {
   activeChatId: string | null;
   messages: Message[];
+  // Local streaming state - reflects whether the CURRENTLY ACTIVE chat is streaming
+  // For accurate per-chat streaming state, use streamingStore
   isStreaming: boolean;
   streamingBuffer: string;
   streamingModel: string | null;
@@ -49,7 +52,8 @@ interface ChatState {
   currentSummary: string | null;
   // Tree navigation state - maps parentId to the active child messageId
   activePath: Map<string | null, string>;
-  // Abort controller for stopping generation
+  // Abort controller for the currently active chat's stream
+  // Note: Only valid when this chat is the active one and actively streaming
   abortController: AbortController | null;
   // Track partial content for auto-save during streaming
   partialContentMap: Map<string, string>; // messageId -> partial content
@@ -372,14 +376,28 @@ const createChatStore = () => {
   return {
     subscribe,
     
-    setActiveChat: (chatId: string) => update(state => ({
-      ...state,
-      activeChatId: chatId,
-      messages: [],
-      streamingBuffer: '',
-      isStreaming: false,
-      activePath: new Map()
-    })),
+    setActiveChat: (chatId: string) => update(state => {
+      // Check if this chat is currently streaming to preserve that state
+      const isCurrentlyStreaming = streamingStore.isChatStreaming(chatId);
+      
+      // If switching to a chat that is streaming in the background,
+      // retrieve the abortController from streamingStore so the user can stop it
+      const abortController = isCurrentlyStreaming 
+        ? (streamingStore.getAbortController(chatId) || null)
+        : null;
+      
+      return {
+        ...state,
+        activeChatId: chatId,
+        messages: [],
+        streamingBuffer: '',
+        // Preserve streaming state if this chat is actively generating
+        isStreaming: isCurrentlyStreaming,
+        // Restore abortController from streamingStore if this chat is streaming
+        abortController,
+        activePath: new Map()
+      };
+    }),
 
     setMode: (mode: 'auto' | 'manual') => update(state => ({
       ...state,
@@ -397,10 +415,23 @@ const createChatStore = () => {
         const state = getState();
         const messages = await buildVisibleMessages(chatId, state.activePath);
         
+        // Check if this chat is currently streaming (from streamingStore)
+        // This allows seamless switching between active streaming chats
+        const isCurrentlyStreaming = streamingStore.isChatStreaming(chatId);
+        
+        // If streaming, retrieve the abortController so the user can stop it
+        const abortController = isCurrentlyStreaming
+          ? (streamingStore.getAbortController(chatId) || null)
+          : null;
+        
         update(state => ({
           ...state,
           activeChatId: chatId,
-          messages
+          messages,
+          // Restore streaming state if this chat is actively streaming
+          isStreaming: isCurrentlyStreaming,
+          // Restore abortController from streamingStore if this chat is streaming
+          abortController,
           // Note: We intentionally don't override mode/selectedModels here
           // to preserve user's global model selection across chats
         }));
@@ -580,6 +611,14 @@ const createChatStore = () => {
         streamingMessageIds: [assistantMessageId]
       }));
 
+      // Get chat info for streaming tracking
+      const chatInfo = await chatDB.getChat(state!.activeChatId!);
+      const chatName = chatInfo?.title || 'Unknown Chat';
+      
+      // Track streaming in streamingStore for sidebar indicators
+      // Pass abortController so it can be retrieved when switching back to this chat
+      streamingStore.startStreaming(state!.activeChatId!, chatName, abortController);
+
       // Get the conversation history up to this message
       const path = await chatDB.getMessagePath(userMessageId);
       const conversationHistory = path.map(m => ({
@@ -756,14 +795,17 @@ const createChatStore = () => {
         // Update chat stats
         const allMessages = await chatDB.getMessages(state!.activeChatId!);
         const totalCost = allMessages.reduce((sum, m) => sum + (m.stats?.cost || 0), 0);
-        const totalTokens = allMessages.reduce((sum, m) => 
+        const totalTokens = allMessages.reduce((sum, m) =>
           sum + (m.stats?.tokensInput || 0) + (m.stats?.tokensOutput || 0), 0
         );
+        // Collect unique models from messages
+        const models = [...new Set(allMessages.map(m => m.model).filter(Boolean))] as string[];
         
         await chatDB.updateChatStats(state!.activeChatId!, {
           messageCount: allMessages.length,
           totalCost,
-          totalTokens
+          totalTokens,
+          models
         });
         
         if (typeof window !== 'undefined') {
@@ -783,6 +825,13 @@ const createChatStore = () => {
           streamingMessageIds: []
         }));
 
+        // Get chat info for completion tracking
+        const completedChatInfo = await chatDB.getChat(state!.activeChatId!);
+        const completedChatName = completedChatInfo?.title || 'Unknown Chat';
+        
+        // Mark streaming as complete in streamingStore
+        streamingStore.completeStreaming(state!.activeChatId!, completedChatName);
+
       } catch (error) {
         // Don't show error toast for user-initiated aborts
         if (error instanceof Error && error.name === 'AbortError') {
@@ -800,6 +849,8 @@ const createChatStore = () => {
           partialContentMap: new Map(),
           streamingMessageIds: []
         }));
+        // Remove streaming state from streamingStore on error
+        streamingStore.stopStreaming(state!.activeChatId!);
       }
     },
 
@@ -813,7 +864,8 @@ const createChatStore = () => {
           updatedAt: new Date(),
           messageCount: 0,
           totalCost: 0,
-          totalTokens: 0
+          totalTokens: 0,
+          models: []
         });
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('chat-updated'));
@@ -973,9 +1025,14 @@ const createChatStore = () => {
         initialPartialContentMap.set(msg.id, '');
       }
 
+      // IMPORTANT: Do NOT update activeChatId here
+      // If the user switched to a different chat while this one is generating in background,
+      // we don't want to switch them back. Only update messages and streaming state.
       update(s => ({
         ...s,
-        activeChatId: chatId,
+        // Only update activeChatId if it matches this chat (user is still viewing it)
+        // or if it's null (new chat). Otherwise, preserve user's current active chat.
+        activeChatId: s.activeChatId === null || s.activeChatId === chatId ? chatId : s.activeChatId,
         messages: visibleMessages,
         isStreaming: true,
         streamingBuffer: '',
@@ -986,6 +1043,14 @@ const createChatStore = () => {
         partialContentMap: initialPartialContentMap,
         streamingMessageIds: assistantMessageIds
       }));
+
+      // Get chat info for streaming tracking
+      const sendChatInfo = await chatDB.getChat(chatId);
+      const sendChatName = sendChatInfo?.title || 'Unknown Chat';
+      
+      // Track streaming in streamingStore for sidebar indicators
+      // Pass abortController so it can be retrieved when switching back to this chat
+      streamingStore.startStreaming(chatId, sendChatName, abortController);
 
       try {
         const conversationMessages = state!.messages.map(m => ({
@@ -1214,11 +1279,14 @@ const createChatStore = () => {
         const totalTokens = allStoredMessages.reduce((sum, m) => 
           sum + (m.stats?.tokensInput || 0) + (m.stats?.tokensOutput || 0), 0
         );
+        // Collect unique models from messages
+        const models = [...new Set(allStoredMessages.map(m => m.model).filter(Boolean))] as string[];
         
         await chatDB.updateChatStats(chatId, {
           messageCount: allStoredMessages.length,
           totalCost,
-          totalTokens
+          totalTokens,
+          models
         });
         
         if (typeof window !== 'undefined') {
@@ -1238,6 +1306,13 @@ const createChatStore = () => {
           streamingMessageIds: []
         }));
 
+        // Get chat info for completion tracking
+        const finalChatInfo = await chatDB.getChat(chatId);
+        const finalChatName = finalChatInfo?.title || 'Unknown Chat';
+        
+        // Mark streaming as complete in streamingStore
+        streamingStore.completeStreaming(chatId, finalChatName);
+
       } catch (error) {
         // Don't show error toast for user-initiated aborts
         if (error instanceof Error && error.name === 'AbortError') {
@@ -1255,6 +1330,8 @@ const createChatStore = () => {
           partialContentMap: new Map(),
           streamingMessageIds: []
         }));
+        // Remove streaming state from streamingStore on error
+        streamingStore.stopStreaming(chatId);
       }
     },
 
@@ -1262,6 +1339,11 @@ const createChatStore = () => {
       const state = getState();
       if (state.abortController) {
         state.abortController.abort();
+        
+        // Remove streaming state from streamingStore
+        if (state.activeChatId) {
+          streamingStore.stopStreaming(state.activeChatId);
+        }
         
         // Auto-save partial content for all streaming messages
         const partialContentMap = state.partialContentMap;
@@ -1362,25 +1444,62 @@ const createChatStore = () => {
       imageOptions: options
     })),
 
-    reset: () => set({
-      activeChatId: null,
-      messages: [],
-      isStreaming: false,
-      streamingBuffer: '',
-      streamingModel: null,
-      multiModelBuffers: new Map(),
-      multiModelStats: new Map(),
-      draftMessage: '',
-      mode: 'auto',
-      selectedModels: [],
-      routerDecision: null,
-      currentSummary: null,
-      activePath: new Map(),
-      abortController: null,
-      partialContentMap: new Map(),
-      streamingMessageIds: [],
-      imageOptions: {}
-    })
+    // Soft reset - for navigation (doesn't abort ongoing streams)
+    reset: () => {
+      // Reset UI state without aborting ongoing streams
+      // This allows multitasking - starting new chats while others generate
+      set({
+        activeChatId: null,
+        messages: [],
+        isStreaming: false,
+        streamingBuffer: '',
+        streamingModel: null,
+        multiModelBuffers: new Map(),
+        multiModelStats: new Map(),
+        draftMessage: '',
+        mode: 'auto',
+        selectedModels: [],
+        routerDecision: null,
+        currentSummary: null,
+        activePath: new Map(),
+        abortController: null,
+        partialContentMap: new Map(),
+        streamingMessageIds: [],
+        imageOptions: {}
+      });
+    },
+
+    // Hard reset - aborts any ongoing generation (use when deleting chats or explicit stop)
+    hardReset: () => {
+      const state = getState();
+      if (state.abortController) {
+        try {
+          state.abortController.abort();
+        } catch (e) {
+          // Ignore abort errors
+        }
+      }
+      
+      set({
+        activeChatId: null,
+        messages: [],
+        isStreaming: false,
+        streamingBuffer: '',
+        streamingModel: null,
+        multiModelBuffers: new Map(),
+        multiModelStats: new Map(),
+        draftMessage: '',
+        mode: 'auto',
+        selectedModels: [],
+        routerDecision: null,
+        currentSummary: null,
+        activePath: new Map(),
+        abortController: null,
+        partialContentMap: new Map(),
+        streamingMessageIds: [],
+        imageOptions: {}
+      });
+    },
   };
 };
 

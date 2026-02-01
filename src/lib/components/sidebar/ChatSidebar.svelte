@@ -2,6 +2,7 @@
 	import { Search, Plus, Settings, BarChart3 } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { uiStore } from '$lib/stores/uiStore';
+	import { chatStore } from '$lib/stores/chatStore';
 	import ChatList from './ChatList.svelte';
 	import ChatFilters from './ChatFilters.svelte';
 	
@@ -9,6 +10,9 @@
 	let theme = $derived($uiStore.theme);
 	
 	async function handleNewChat() {
+		// Reset the chat store to clear any generating state from previous chats
+		// This allows multitasking - previous chat continues generating in background
+		chatStore.reset();
 		// Navigate to /chat/new - UUID will be generated when first message is sent
 		goto('/chat/new');
 	}

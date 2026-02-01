@@ -5,6 +5,7 @@
 	import MessageInput from '$lib/components/chat/MessageInput.svelte';
 	import StatsModal from '$lib/components/chat/StatsModal.svelte';
 	import { chatStore } from '$lib/stores/chatStore';
+	import { streamingStore } from '$lib/stores/streamingStore';
 	import { apiKeyStore } from '$lib/stores/apiKeyStore';
 	import { uiStore } from '$lib/stores/uiStore';
 	import { goto } from '$app/navigation';
@@ -19,6 +20,7 @@
 		// Reset store when pathname is /chat/new
 		if ($page.url.pathname === '/chat/new') {
 			chatStore.reset();
+			streamingStore.setActiveChat(null);
 		}
 	});
 	

@@ -154,7 +154,7 @@
 			case 'openai': return 'bg-[#10a37f]';
 			case 'anthropic': return 'bg-[#d97757]';
 			case 'google': return 'bg-[#4285f4]';
-			case 'xai': return 'bg-[#000000]';
+			case 'xai': return theme === 'light' ? 'bg-[#000000]' : 'bg-[#ffffff]';
 			case 'seedream': return 'bg-[#8b5cf6]';
 			case 'deepseek': return 'bg-[#4d6bff]';
 			case 'meta': return 'bg-[#0668E1]';
@@ -187,8 +187,9 @@
 		aria-expanded={isOpen}
 	>
 		{#if DisplayBrandIcon}
+			{@const iconColor = displayBrand === 'xai' && theme === 'dark' ? '#000000' : '#ffffff'}
 			<div class="w-5 h-5 rounded flex items-center justify-center {getBrandColor(displayBrand!)} flex-shrink-0 pointer-events-none">
-				<DisplayBrandIcon size={14} class="text-white" />
+				<DisplayBrandIcon size={14} color={iconColor} />
 			</div>
 		{:else if $modelStore.autoMode}
 			<div class="w-5 h-5 rounded bg-[#48bb78] flex items-center justify-center flex-shrink-0 pointer-events-none">
@@ -263,6 +264,7 @@
 				{#each filteredModels() as model}
 					{@const isSelected = $modelStore.multiModelMode ? selectedModels.has(model.id) : (!$modelStore.autoMode && $modelStore.selectedModels.includes(model.id))}
 					{@const ModelIcon = brandIcons[model.brand]}
+					{@const modelIconColor = model.brand === 'xai' && theme === 'dark' ? '#000000' : '#ffffff'}
 					<button
 						class="model-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border"
 						style:background-color={isSelected ? `${accentColor}15` : 'transparent'}
@@ -276,11 +278,11 @@
 								{/if}
 							</div>
 						{/if}
-						<div class="w-8 h-8 rounded-lg {getBrandColor(model.brand)} flex items-center justify-center text-white">
+						<div class="w-8 h-8 rounded-lg {getBrandColor(model.brand)} flex items-center justify-center">
 							{#if ModelIcon}
-								<ModelIcon size={18} />
+								<ModelIcon size={18} color={modelIconColor} />
 							{:else}
-								<span class="text-sm font-semibold">{model.name[0]}</span>
+								<span class="text-sm font-semibold" style:color={modelIconColor}>{model.name[0]}</span>
 							{/if}
 						</div>
 						<div class="flex-1 text-left min-w-0">
