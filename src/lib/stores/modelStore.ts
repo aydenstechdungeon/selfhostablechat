@@ -9,7 +9,25 @@ interface ModelState {
   recentModels: string[];
 }
 
+export interface CustomModel {
+  id: string;
+  name: string;
+  displayName: string;
+  brand: string;
+  category: string;
+  contextWindow: number;
+  pricePer1M: { input: number; output: number };
+  capabilities: string[];
+  supportsImages?: boolean;
+  supportsImageGeneration?: boolean;
+  isRecommended?: boolean;
+  isAutoSelectable?: boolean;
+  isCustom: true;
+}
+
 const STORAGE_KEY = 'modelStore';
+const CUSTOM_MODELS_KEY = 'customModels';
+const HIDDEN_MODELS_KEY = 'hiddenModels';
 
 const getInitialState = (): ModelState => {
   if (typeof window === 'undefined') {
@@ -58,7 +76,9 @@ export const AVAILABLE_MODELS = [
     capabilities: ['general', 'fast'],
     supportsImages: false,
     contextWindow: 131072,
-    pricePer1M: { input: 0, output: 0 }
+    pricePer1M: { input: 0, output: 0 },
+    isRecommended: true,
+    isAutoSelectable: true
   },
   {
     id: 'openai/gpt-oss-120b:free',
@@ -69,7 +89,9 @@ export const AVAILABLE_MODELS = [
     capabilities: ['general', 'fast'],
     supportsImages: false,
     contextWindow: 131072,
-    pricePer1M: { input: 0, output: 0 }
+    pricePer1M: { input: 0, output: 0 },
+    isRecommended: false,
+    isAutoSelectable: true
   },
   {
     id: 'openai/gpt-oss-20b',
@@ -494,3 +516,166 @@ export const imageGenerationModels = AVAILABLE_MODELS.filter(m => m.supportsImag
 export function isImageGenerationModel(modelId: string): boolean {
   return imageGenerationModels.some(m => m.id === modelId);
 }
+
+// Hidden Models Store (for hiding built-in models)
+interface HiddenModelsState {
+  hiddenIds: string[];
+}
+
+const getInitialHiddenModels = (): HiddenModelsState => {
+  if (typeof window === 'undefined') {
+    return { hiddenIds: [] };
+  }
+
+  const stored = localStorage.getItem(HIDDEN_MODELS_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      return { hiddenIds: parsed.hiddenIds || [] };
+    } catch (e) {
+      console.error('Failed to parse hidden models:', e);
+    }
+  }
+
+  return { hiddenIds: [] };
+};
+
+const createHiddenModelsStore = () => {
+  const { subscribe, set, update } = writable<HiddenModelsState>(getInitialHiddenModels());
+
+  const saveToStorage = (state: HiddenModelsState) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(HIDDEN_MODELS_KEY, JSON.stringify(state));
+    }
+  };
+
+  return {
+    subscribe,
+    hideModel: (id: string) => update(state => {
+      const newState = {
+        hiddenIds: [...state.hiddenIds, id]
+      };
+      saveToStorage(newState);
+      return newState;
+    }),
+    showModel: (id: string) => update(state => {
+      const newState = {
+        hiddenIds: state.hiddenIds.filter(hiddenId => hiddenId !== id)
+      };
+      saveToStorage(newState);
+      return newState;
+    }),
+    toggleModel: (id: string) => update(state => {
+      const isHidden = state.hiddenIds.includes(id);
+      const newState = {
+        hiddenIds: isHidden
+          ? state.hiddenIds.filter(hiddenId => hiddenId !== id)
+          : [...state.hiddenIds, id]
+      };
+      saveToStorage(newState);
+      return newState;
+    }),
+    reset: () => {
+      const emptyState: HiddenModelsState = { hiddenIds: [] };
+      set(emptyState);
+      saveToStorage(emptyState);
+    }
+  };
+};
+
+export const hiddenModelsStore = createHiddenModelsStore();
+
+// Custom Models Store
+interface CustomModelsState {
+  models: CustomModel[];
+}
+
+const getInitialCustomModels = (): CustomModelsState => {
+  if (typeof window === 'undefined') {
+    return { models: [] };
+  }
+
+  const stored = localStorage.getItem(CUSTOM_MODELS_KEY);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored);
+      return { models: parsed.models || [] };
+    } catch (e) {
+      console.error('Failed to parse custom models:', e);
+    }
+  }
+
+  return { models: [] };
+};
+
+const createCustomModelsStore = () => {
+  const { subscribe, set, update } = writable<CustomModelsState>(getInitialCustomModels());
+
+  const saveToStorage = (state: CustomModelsState) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(CUSTOM_MODELS_KEY, JSON.stringify(state));
+    }
+  };
+
+  return {
+    subscribe,
+    addModel: (model: CustomModel) => update(state => {
+      const newState = {
+        models: [...state.models, model]
+      };
+      saveToStorage(newState);
+      return newState;
+    }),
+    updateModel: (id: string, updates: Partial<CustomModel>) => update(state => {
+      const newState = {
+        models: state.models.map(m => m.id === id ? { ...m, ...updates } : m)
+      };
+      saveToStorage(newState);
+      return newState;
+    }),
+    removeModel: (id: string) => update(state => {
+      const newState = {
+        models: state.models.filter(m => m.id !== id)
+      };
+      saveToStorage(newState);
+      return newState;
+    }),
+    reset: () => {
+      const emptyState: CustomModelsState = { models: [] };
+      set(emptyState);
+      saveToStorage(emptyState);
+    }
+  };
+};
+
+export const customModelsStore = createCustomModelsStore();
+
+// Reset all model settings to defaults
+export const resetAllModelSettings = () => {
+  customModelsStore.reset();
+  hiddenModelsStore.reset();
+  modelStore.reset();
+};
+
+// Combined models store that includes both built-in and custom models
+export const allModelsStore = derived(
+  customModelsStore,
+  $custom => [...AVAILABLE_MODELS, ...$custom.models]
+);
+
+// Get recommended models (from both built-in and custom)
+export const recommendedModels = derived(
+  allModelsStore,
+  $models => $models.filter(m => m.isRecommended || m.category === 'general' || m.category === 'advanced')
+);
+
+// Get auto-selectable models
+export const autoSelectableModels = derived(
+  allModelsStore,
+  $models => $models.filter(m => {
+    if ('isAutoSelectable' in m) {
+      return m.isAutoSelectable !== false;
+    }
+    return true;
+  })
+);

@@ -1,11 +1,12 @@
 <script lang="ts">
 	import type { Message } from '$lib/types';
-	import { formatRelativeTime } from '$lib/utils/helpers';
+	import { formatRelativeTime, formatFileSize } from '$lib/utils/helpers';
 	import { parseMarkdown, initCodeCopyButtons } from '$lib/utils/markdown';
 	import MessageActions from './MessageActions.svelte';
 	import VersionSelector from './VersionSelector.svelte';
+	import ReasoningDisplay from './ReasoningDisplay.svelte';
 	import ImageModal from '$lib/components/media/ImageModal.svelte';
-	import { User, Bot, Edit3, Check, X, AlertCircle } from 'lucide-svelte';
+	import { User, Bot, Edit3, Check, X, AlertCircle, FileText, Music, Film, File } from 'lucide-svelte';
 	import { chatStore, isStreaming } from '$lib/stores/chatStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { tick } from 'svelte';
@@ -156,6 +157,30 @@
 			}
 		};
 	});
+	
+	// Get icon for file type
+	function getFileIcon(type: string) {
+		switch (type) {
+			case 'video': return Film;
+			case 'audio': return Music;
+			case 'document': return FileText;
+			default: return File;
+		}
+	}
+	
+	// Get file type label
+	function getFileTypeLabel(type: string, mimeType?: string): string {
+		if (type === 'video') return 'Video';
+		if (type === 'audio') return 'Audio';
+		if (type === 'document') {
+			if (mimeType?.includes('pdf')) return 'PDF';
+			if (mimeType?.includes('json')) return 'JSON';
+			if (mimeType?.includes('csv')) return 'CSV';
+			if (mimeType?.includes('markdown') || mimeType?.includes('md')) return 'Markdown';
+			return 'Document';
+		}
+		return 'File';
+	}
 </script>
 
 <div class="message-bubble group flex gap-3 animate-fade-in-up {message.role === 'user' ? 'flex-row-reverse' : ''}">
@@ -204,7 +229,7 @@
 		</div>
 		
 		<div class="message-body">
-			<!-- Display attached images for user messages -->
+			<!-- Display attached media for user messages -->
 			{#if message.media && message.media.length > 0}
 				<div class="flex flex-wrap gap-2 mb-3">
 					{#each message.media as media}
@@ -222,6 +247,23 @@
 									<span class="text-white opacity-0 group-hover:opacity-100 text-xs font-medium">View</span>
 								</div>
 							</button>
+						{:else}
+							<!-- Non-image files -->
+							<div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0f1419] border border-[#2d3748]">
+								{#if media.type === 'video'}
+									<Film size={20} class="text-[#4299e1]" />
+								{:else if media.type === 'audio'}
+									<Music size={20} class="text-[#4299e1]" />
+								{:else if media.type === 'document'}
+									<FileText size={20} class="text-[#4299e1]" />
+								{:else}
+									<File size={20} class="text-[#4299e1]" />
+								{/if}
+								<div>
+									<p class="text-xs font-medium">{media.name || 'Attachment'}</p>
+									<p class="text-[10px] opacity-60">{getFileTypeLabel(media.type, media.mimeType)}</p>
+								</div>
+							</div>
 						{/if}
 					{/each}
 				</div>
@@ -273,21 +315,30 @@
 									class="relative group overflow-hidden rounded-lg border border-[#2d3748] hover:border-[#4299e1] transition-colors"
 									onclick={() => openImageModal(media.url, media.name || 'Generated image')}
 								>
-									<img 
-										src={media.url} 
-										alt={media.name || ''}
-										class="max-w-full w-auto h-auto max-h-[300px] object-contain hover:scale-105 transition-transform duration-200"
-										onerror={(e) => {
-											console.error('Failed to load generated image:', e);
-											(e.target as HTMLImageElement).style.display = 'none';
-										}}
-									/>
+									{#if media.url}
+										<img
+											src={media.url}
+											alt={media.name || ''}
+											class="max-w-full w-auto h-auto max-h-[300px] object-contain hover:scale-105 transition-transform duration-200"
+										/>
+									{/if}
 									<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">
 										<span class="text-white opacity-0 group-hover:opacity-100 text-xs font-medium">View</span>
 									</div>
 								</button>
 							{/if}
 						{/each}
+					</div>
+				{/if}
+				
+				<!-- Reasoning display for assistant messages -->
+				{#if message.reasoning && message.role === 'assistant'}
+					<div class="mt-3">
+						<ReasoningDisplay 
+							reasoning={message.reasoning.steps || message.reasoning.rawContent || ''}
+							model={message.model}
+							compact={true}
+						/>
 					</div>
 				{/if}
 				

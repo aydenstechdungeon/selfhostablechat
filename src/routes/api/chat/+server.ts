@@ -1,8 +1,8 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { analyzeAndRoute, type MediaAttachment, isImageGenerationModel } from '$lib/server/ai/router';
+import { analyzeAndRoute, type MediaAttachment, isImageGenerationModel, IMAGE_CONVERSION_TOOL } from '$lib/server/ai/router';
 import { generateChatSummary } from '$lib/server/ai/summarizer';
 import { createSSEStream, createMultiModelStream, createSSEResponse, type StreamChunk } from '$lib/server/ai/streaming';
-import type { OpenRouterMessage } from '$lib/server/ai/openrouter';
+import type { OpenRouterMessage, OpenRouterTool } from '$lib/server/ai/openrouter';
 import { IMAGE_GENERATION_PROMPT } from '$lib/server/ai/router';
 import { checkRateLimit } from '$lib/server/ai/rate-limiter';
 
@@ -85,15 +85,41 @@ function processSystemPromptTemplate(prompt: string, modelId: string): string {
     .replace(/:model_id:/g, modelId);
 }
 
+// System prompt for image conversion tool
+const IMAGE_CONVERSION_PROMPT = `You have access to a tool called "convert_image" that can convert images between formats.
+
+When a user asks you to convert an image to a different format (e.g., "convert this image to webp", "make this a png", "convert to jpeg"), you MUST use the convert_image tool.
+
+The tool accepts:
+- image_url: The URL or base64 data URL of the image to convert
+- target_format: The format to convert to (png, jpeg, webp, or avif)
+- quality: Optional quality setting (1-100) for lossy formats
+
+After converting, present the converted image to the user using markdown image syntax: ![description](image_url)`;
+
+// Check if message indicates image conversion request
+function isImageConversionRequest(message: string): boolean {
+  const lowerMessage = message.toLowerCase();
+  const conversionKeywords = [
+    'convert to webp', 'convert to png', 'convert to jpeg', 'convert to jpg', 'convert to avif',
+    'convert this to webp', 'convert this to png', 'convert this to jpeg', 'convert this to jpg',
+    'make this webp', 'make this png', 'make this jpeg', 'make this jpg',
+    'convert image to', 'convert this image', 'change format to'
+  ];
+  return conversionKeywords.some(keyword => lowerMessage.includes(keyword));
+}
+
 // Build conversation messages with optional system prompt and image attachments
 function buildConversationMessages(
   conversationHistory: any[], 
   message: string, 
   attachments: MediaAttachment[] = [],
   systemPrompt?: string,
-  modelId?: string
-): OpenRouterMessage[] {
+  modelId?: string,
+  includeImageConversionTool: boolean = false
+): { messages: OpenRouterMessage[]; tools?: OpenRouterTool[] } {
   const messages: OpenRouterMessage[] = [];
+  let tools: OpenRouterTool[] | undefined;
   
   // Determine if this is an image generation model
   const isImageGenModel = modelId && isImageGenerationModel(modelId);
@@ -115,6 +141,15 @@ function buildConversationMessages(
       role: 'system',
       content: IMAGE_GENERATION_PROMPT
     });
+  }
+  
+  // Add image conversion tool prompt if images are attached and user might want conversion
+  if (includeImageConversionTool && attachments.some(a => a.type === 'image')) {
+    messages.push({
+      role: 'system',
+      content: IMAGE_CONVERSION_PROMPT
+    });
+    tools = [IMAGE_CONVERSION_TOOL as OpenRouterTool];
   }
   
   // Add conversation history
@@ -157,7 +192,7 @@ function buildConversationMessages(
     content: userContent
   });
   
-  return messages;
+  return { messages, tools };
 }
 
 export const POST: RequestHandler = async ({ request, getClientAddress }) => {
@@ -240,12 +275,16 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     if (mode === 'auto') {
       const routerDecision = await analyzeAndRoute(sanitizedMessage, attachments as MediaAttachment[], apiKey);
       
-      const conversationMessages = buildConversationMessages(
+      // Check if this might be an image conversion request
+      const includeConversionTool = isImageConversionRequest(sanitizedMessage);
+      
+      const { messages: conversationMessages, tools } = buildConversationMessages(
         conversationHistory,
         sanitizedMessage,
         attachments as MediaAttachment[],
         systemPrompt,
-        routerDecision.model
+        routerDecision.model,
+        includeConversionTool
       );
       
       // Start title generation in parallel with streaming
@@ -266,7 +305,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
         // Process the stream - title will be yielded after streaming completes
         // but both run in parallel
-        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions)) {
+        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions, tools)) {
           yield chunk;
         }
 
@@ -287,18 +326,23 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         // For multi-model mode, we'll use the first model for template processing
         // as a reasonable default
         const primaryModel = models[0];
-        const conversationMessages = buildConversationMessages(
+        
+        // Check if this might be an image conversion request
+        const includeConversionTool = isImageConversionRequest(sanitizedMessage);
+        
+        const { messages: conversationMessages, tools } = buildConversationMessages(
           conversationHistory,
           sanitizedMessage,
           attachments as MediaAttachment[],
           systemPrompt,
-          primaryModel
+          primaryModel,
+          includeConversionTool
         );
         
         // Start title generation in parallel with streaming for manual mode too
         // FIX: Properly handle content that could be string or array
         const titlePromise = generateChatTitle(
-          conversationMessages.map(m => ({
+          conversationMessages.map((m: any) => ({
             role: m.role,
             content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
           })),
@@ -306,7 +350,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         );
         
         // Process the stream
-        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions)) {
+        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools)) {
           yield chunk as StreamChunk;
         }
         

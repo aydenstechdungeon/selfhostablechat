@@ -6,8 +6,11 @@ export interface RouterDecision {
 }
 
 export interface MediaAttachment {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'document' | 'audio' | 'file';
   url: string;
+  name?: string;
+  mimeType?: string;
+  size?: number;
 }
 
 export const IMAGE_GENERATION_PROMPT = `You are an AI image generation assistant. When the user requests an image, you should generate it and include the image in your response using markdown image syntax: ![description](image_url).
@@ -17,6 +20,40 @@ Guidelines:
 - Include the generated image in your response using markdown: ![description](image_url)
 - Provide a brief description of what you generated
 - If the request is unclear, ask for clarification`;
+
+// Tool definition for image conversion
+export const IMAGE_CONVERSION_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'convert_image',
+    description: 'Convert an image from one format to another (e.g., PNG to WebP, JPEG to PNG, WebP to AVIF). Use this when the user wants to convert an image to a different format.',
+    parameters: {
+      type: 'object',
+      properties: {
+        image_url: {
+          type: 'string',
+          description: 'The URL or base64 data URL of the image to convert'
+        },
+        target_format: {
+          type: 'string',
+          enum: ['png', 'jpeg', 'webp', 'avif'],
+          description: 'The target format to convert the image to'
+        },
+        quality: {
+          type: 'number',
+          minimum: 1,
+          maximum: 100,
+          default: 92,
+          description: 'Quality setting for lossy formats (JPEG, WebP), 1-100. Higher is better quality but larger file size. PNG ignores this value.'
+        }
+      },
+      required: ['image_url', 'target_format']
+    }
+  }
+};
+
+// Tools available to the AI
+export const AVAILABLE_TOOLS = [IMAGE_CONVERSION_TOOL];
 
 const ROUTING_PROMPT = `You are a model routing assistant. Analyze the user's message and choose the BEST single model from this list:
 

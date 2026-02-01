@@ -1,23 +1,41 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { Send, X, Image, Square, Sparkles } from 'lucide-svelte';
+	import { Send, X, Paperclip, Square, Sparkles, FileText, Music, Film, File as FileIcon } from 'lucide-svelte';
 	import { chatStore, isStreaming } from '$lib/stores/chatStore';
 	import { uiStore } from '$lib/stores/uiStore';
 	import { modelStore, isImageGenerationModel } from '$lib/stores/modelStore';
 	import { toastStore } from '$lib/stores/toastStore';
-	import { IMAGE_MODELS } from '$lib/types';
+	import { IMAGE_MODELS, getFileTypeCategory, ALL_SUPPORTED_TYPES, MAX_FILE_SIZE } from '$lib/types';
 	import ImageModal from '$lib/components/media/ImageModal.svelte';
+	
+	// Props
+	interface Props {
+		pendingFiles?: globalThis.File[];
+		consumePendingFiles?: () => globalThis.File[];
+	}
+	
+	let { pendingFiles = [], consumePendingFiles }: Props = $props();
 	
 	let message = $state('');
 	let isSubmitting = $state(false);
 	let theme = $derived($uiStore.theme);
-	let attachedImages = $state<Array<{ type: 'image'; url: string; name: string }>>([]);
+	let attachedFiles = $state<Array<{ type: 'image' | 'video' | 'document' | 'audio' | 'file'; url: string; name: string; mimeType: string; size: number }>>([]);
 	let fileInput: HTMLInputElement | undefined = $state(undefined);
 	let isStreamingState = $derived($isStreaming);
 	
 	// Image modal state
 	let selectedImageUrl = $state<string | null>(null);
 	let selectedImageAlt = $state('');
+	
+	// Watch for pending files from parent (drag and drop)
+	$effect(() => {
+		if (pendingFiles.length > 0 && consumePendingFiles) {
+			const files = consumePendingFiles();
+			if (files.length > 0) {
+				processFiles(files);
+			}
+		}
+	});
 	
 	function openImageModal(imageUrl: string, alt: string) {
 		selectedImageUrl = imageUrl;
@@ -45,16 +63,16 @@
 	let isImageGenModel = $derived(!autoMode && selectedModel && isImageGenerationModel(selectedModel));
 	
 	async function handleSubmit() {
-		if ((!message.trim() && attachedImages.length === 0) || isSubmitting) return;
+		if ((!message.trim() && attachedFiles.length === 0) || isSubmitting) return;
 		
 		isSubmitting = true;
 		const userMessage = message.trim();
 		message = '';
-		const images = [...attachedImages];
-		attachedImages = [];
+		const files = [...attachedFiles];
+		attachedFiles = [];
 		
 		try {
-			await chatStore.sendMessage(userMessage, images, isNewChat);
+			await chatStore.sendMessage(userMessage, files, isNewChat);
 		} finally {
 			isSubmitting = false;
 		}
@@ -79,28 +97,39 @@
 	}
 	
 	function handleFiles(fileList: FileList) {
-		const maxSize = 5 * 1024 * 1024; // 5MB
-		
-		for (let i = 0; i < fileList.length; i++) {
-			const file = fileList[i];
-			
-			if (file.size > maxSize) {
-				alert(`File ${file.name} is too large. Maximum size is 5MB`);
+		processFiles(Array.from(fileList));
+	}
+	
+	function processFiles(files: globalThis.File[]) {
+		for (const file of files) {
+			// Check file size
+			if (file.size > MAX_FILE_SIZE) {
+				toastStore.show(`File ${file.name} is too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`, 'error');
 				continue;
 			}
 			
-			if (!file.type.startsWith('image/')) {
-				alert(`File ${file.name} is not a supported image format`);
+			// Check if file type is supported
+			if (!ALL_SUPPORTED_TYPES.includes(file.type as any) && !file.type.startsWith('image/')) {
+				toastStore.show(`File ${file.name} is not a supported format`, 'error');
+				continue;
+			}
+			
+			// Check if image but model doesn't support images
+			if (file.type.startsWith('image/') && !supportsImages) {
+				toastStore.show('Current model does not support images. Switch to a vision-capable model.', 'error');
 				continue;
 			}
 			
 			const reader = new FileReader();
 			reader.onload = (e) => {
 				const result = e.target?.result as string;
-				attachedImages = [...attachedImages, {
-					type: 'image',
+				const fileType = getFileTypeCategory(file.type);
+				attachedFiles = [...attachedFiles, {
+					type: fileType,
 					url: result,
-					name: file.name
+					name: file.name,
+					mimeType: file.type,
+					size: file.size
 				}];
 			};
 			reader.readAsDataURL(file);
@@ -109,16 +138,32 @@
 		if (fileInput) fileInput.value = '';
 	}
 	
-	function removeImage(index: number) {
-		attachedImages = attachedImages.filter((_, i) => i !== index);
+
+	
+	function removeFile(index: number) {
+		attachedFiles = attachedFiles.filter((_, i) => i !== index);
 	}
 	
 	function openFilePicker() {
-		if (!supportsImages) {
-			toastStore.show('Current model does not support images. Switch to a vision-capable model.', 'error');
-			return;
-		}
 		fileInput?.click();
+	}
+	
+	// Get icon for file type
+	function getFileIcon(type: string) {
+		switch (type) {
+			case 'image': return null; // Images show thumbnail
+			case 'video': return Film;
+			case 'audio': return Music;
+			case 'document': return FileText;
+			default: return FileIcon;
+		}
+	}
+	
+	// Format file size
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 	}
 	
 	let bgColor = $derived(theme === 'light' ? '#f8f9fa' : '#1a1f2e');
@@ -135,37 +180,66 @@
 	}
 </style>
 
-<div class="message-input-container flex-shrink-0 transition-colors duration-200" style:background-color={bgColor} style:border-top="1px solid {border}">
+<div class="message-input-container flex-shrink-0 transition-colors duration-200 relative" style:background-color={bgColor} style:border-top="1px solid {border}">
+	
 	<div class="max-w-4xl mx-auto px-6 py-4">
-		<!-- Attached Images Preview -->
-		{#if attachedImages.length > 0}
+		<!-- Attached Files Preview -->
+		{#if attachedFiles.length > 0}
 			<div class="flex flex-wrap gap-2 mb-3">
-				{#each attachedImages as image, index}
-				<div 
-					class="relative group rounded-lg border cursor-pointer hover:border-[#4299e1] transition-colors"
-					style:border-color={border}
-					onclick={() => openImageModal(image.url, image.name)}
-					role="button"
-					tabindex="0"
-					onkeydown={(e) => e.key === 'Enter' && openImageModal(image.url, image.name)}
-				>
-					<div class="w-16 h-16 overflow-hidden rounded-lg">
-						<img 
-							src={image.url} 
-							alt={image.name}
-							class="w-full h-full object-cover"
-						/>
-					</div>
-					<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center rounded-lg">
-						<span class="text-white opacity-0 group-hover:opacity-100 text-xs font-medium">View</span>
-					</div>
-					<button
-						onclick={(e) => { e.stopPropagation(); removeImage(index); }}
-						class="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md"
-					>
-						<X size={12} />
-					</button>
-				</div>
+				{#each attachedFiles as file, index}
+					{#if file.type === 'image'}
+						<div 
+							class="relative group rounded-lg border cursor-pointer hover:border-[#4299e1] transition-colors"
+							style:border-color={border}
+							onclick={() => openImageModal(file.url, file.name)}
+							role="button"
+							tabindex="0"
+							onkeydown={(e) => e.key === 'Enter' && openImageModal(file.url, file.name)}
+						>
+							<div class="w-16 h-16 overflow-hidden rounded-lg">
+								<img 
+									src={file.url} 
+									alt={file.name}
+									class="w-full h-full object-cover"
+								/>
+							</div>
+							<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center rounded-lg">
+								<span class="text-white opacity-0 group-hover:opacity-100 text-xs font-medium">View</span>
+							</div>
+							<button
+								onclick={(e) => { e.stopPropagation(); removeFile(index); }}
+								class="absolute -top-2 -right-2 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity z-10 shadow-md"
+							>
+								<X size={12} />
+							</button>
+						</div>
+					{:else}
+						<div 
+							class="relative group flex items-center gap-2 px-3 py-2 rounded-lg border min-w-[120px] max-w-[200px]"
+							style:border-color={border}
+							style:background-color={inputBg}
+						>
+							{#if file.type === 'video'}
+								<Film size={20} color={accentColor} />
+							{:else if file.type === 'audio'}
+								<Music size={20} color={accentColor} />
+							{:else if file.type === 'document'}
+								<FileText size={20} color={accentColor} />
+							{:else}
+								<FileIcon size={20} color={accentColor} />
+							{/if}
+							<div class="flex-1 min-w-0">
+								<p class="text-xs font-medium truncate" style:color={text}>{file.name}</p>
+								<p class="text-[10px] opacity-60" style:color={text}>{formatFileSize(file.size)}</p>
+							</div>
+							<button
+								onclick={() => removeFile(index)}
+								class="p-1 rounded-full hover:bg-red-500/20 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+							>
+								<X size={12} />
+							</button>
+						</div>
+					{/if}
 				{/each}
 			</div>
 		{/if}
@@ -174,11 +248,11 @@
 			<div class="flex-1 relative">
 				<button 
 					class="absolute left-4 top-3 p-1 rounded-lg transition-all duration-200 hover:opacity-70 hover:scale-110 active:scale-95 z-10"
-					style:color={supportsImages ? accentColor : placeholder}
+					style:color={accentColor}
 					onclick={openFilePicker}
-					title={supportsImages ? "Attach images" : "Current model doesn't support images"}
+					title="Attach files"
 				>
-					<Image size={18} />
+					<Paperclip size={18} />
 				</button>
 				<textarea
 					class="w-full pl-12 pr-4 py-3 rounded-xl border resize-none focus:outline-none transition-all duration-200 focus:ring-2 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -187,11 +261,11 @@
 					style:color={text}
 					style:--placeholder-color={placeholder}
 					style:--tw-ring-color={accentColor}
-					placeholder={attachedImages.length > 0 
-						? "Add a message about these images..." 
+					placeholder={attachedFiles.length > 0 
+						? "Add a message about these files..." 
 						: isImageGenModel 
 							? "Describe the image you want to generate..." 
-							: "Type your message..."}
+							: "Type your message or drop files here..."}
 					rows="1"
 					bind:value={message}
 					onkeydown={handleKeyDown}
@@ -219,7 +293,7 @@
 					class="flex-shrink-0 w-12 h-12 rounded-lg text-white transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center hover:scale-105 active:scale-95 hover:shadow-lg"
 					style:background-color={accentColor}
 					onclick={handleSubmit}
-					disabled={(!message.trim() && attachedImages.length === 0) || isSubmitting}
+					disabled={(!message.trim() && attachedFiles.length === 0) || isSubmitting}
 				>
 					<Send size={16} class="transition-transform duration-200 {isSubmitting ? 'animate-pulse' : ''}" />
 				</button>
@@ -230,7 +304,7 @@
 		<input
 			bind:this={fileInput}
 			type="file"
-			accept="image/*"
+			accept="{ALL_SUPPORTED_TYPES.join(',')}"
 			multiple
 			class="hidden"
 			onchange={handleFileSelect}

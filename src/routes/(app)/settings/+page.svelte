@@ -6,6 +6,7 @@
 	import { chatStore } from '$lib/stores/chatStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import ApiKeyManager from '$lib/components/settings/ApiKeyManager.svelte';
+	import ModelManager from '$lib/components/settings/ModelManager.svelte';
 	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
 	import { goto } from '$app/navigation';
 	import { Download, Upload, Trash2, FileArchive, CheckSquare, Square } from 'lucide-svelte';
@@ -487,27 +488,31 @@
 					</div>
 				{:else if activeTab === 'models'}
 					<div class="tab-panel animate-fadeIn space-y-6">
-					<div class="setting-group">
-						<span class="block mb-3 text-sm font-semibold" style:color={textPrimary}>
-							Multi-Model Display Mode
-						</span>
-						<p class="setting-description text-sm mb-3" style:color={textSecondary}>
-							Choose how to display responses from multiple models
-						</p>
-						<div class="space-y-2" role="radiogroup" aria-label="Multi-Model Display Mode">
-								{#each ['split', 'stacked', 'tabbed'] as mode}
-									<label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg border" style:border-color={border}>
-										<input
-											type="radio"
-											name="displayMode"
-											value={mode}
-											checked={settings.multiModelDisplayMode === mode}
-											onchange={() => updateSetting('multiModelDisplayMode', mode as any)}
-											class="w-4 h-4"
-										/>
-										<span class="text-sm capitalize" style:color={textPrimary}>{mode}</span>
-									</label>
-								{/each}
+						<ModelManager {theme} />
+						
+						<div class="border-t pt-6 mt-6" style:border-color={border}>
+							<div class="setting-group">
+								<span class="block mb-3 text-sm font-semibold" style:color={textPrimary}>
+									Multi-Model Display Mode
+								</span>
+								<p class="setting-description text-sm mb-3" style:color={textSecondary}>
+									Choose how to display responses from multiple models
+								</p>
+								<div class="space-y-2" role="radiogroup" aria-label="Multi-Model Display Mode">
+									{#each ['split', 'stacked', 'tabbed'] as mode}
+										<label class="flex items-center gap-3 cursor-pointer p-3 rounded-lg border" style:border-color={border}>
+											<input
+												type="radio"
+												name="displayMode"
+												value={mode}
+												checked={settings.multiModelDisplayMode === mode}
+												onchange={() => updateSetting('multiModelDisplayMode', mode as any)}
+												class="w-4 h-4"
+											/>
+											<span class="text-sm capitalize" style:color={textPrimary}>{mode}</span>
+										</label>
+									{/each}
+								</div>
 							</div>
 						</div>
 					</div>
@@ -517,39 +522,39 @@
 					</div>
 				{:else if activeTab === 'appearance'}
 					<div class="tab-panel animate-fadeIn space-y-6">
-					<div class="setting-group">
-						<label for="theme-select" class="block mb-3 text-sm font-semibold" style:color={textPrimary}>
-							Theme
-						</label>
-						<select 
-							id="theme-select"
-							class="input w-full px-3 py-2 rounded-lg border focus:outline-none focus:border-[#4299e1]"
-							style:background-color={inputBg}
-							style:border-color={border}
-							style:color={textPrimary}
-							value={theme}
-							onchange={(e) => updateTheme(e.currentTarget.value as 'dark' | 'light' | 'auto')}
-						>
+						<div class="setting-group">
+							<label for="theme-select" class="block mb-3 text-sm font-semibold" style:color={textPrimary}>
+								Theme
+							</label>
+							<select 
+								id="theme-select"
+								class="input w-full px-3 py-2 rounded-lg border focus:outline-none focus:border-[#4299e1]"
+								style:background-color={inputBg}
+								style:border-color={border}
+								style:color={textPrimary}
+								value={theme}
+								onchange={(e) => updateTheme(e.currentTarget.value as 'dark' | 'light' | 'auto')}
+							>
 								<option value="dark">Dark</option>
 								<option value="light">Light</option>
 								<option value="auto">Auto (System)</option>
 							</select>
 						</div>
 						
-					<div class="setting-group">
-						<label for="font-size-range" class="block mb-3 text-sm font-semibold" style:color={textPrimary}>
-							Font Size: {settings.fontSize}px
-						</label>
-						<input
-							id="font-size-range"
-							type="range"
-							min="12"
-							max="20"
-							class="w-full"
-							value={settings.fontSize}
-							oninput={(e) => updateSetting('fontSize', parseInt(e.currentTarget.value))}
-						/>
-					</div>
+						<div class="setting-group">
+							<label for="font-size-range" class="block mb-3 text-sm font-semibold" style:color={textPrimary}>
+								Font Size: {settings.fontSize}px
+							</label>
+							<input
+								id="font-size-range"
+								type="range"
+								min="12"
+								max="20"
+								class="w-full"
+								value={settings.fontSize}
+								oninput={(e) => updateSetting('fontSize', parseInt(e.currentTarget.value))}
+							/>
+						</div>
 						
 						<div class="setting-group">
 							<label class="flex items-center gap-3 cursor-pointer">

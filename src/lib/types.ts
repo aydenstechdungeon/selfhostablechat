@@ -16,6 +16,8 @@ export interface Message {
   editedAt?: Date;
   // Auto-save field for partial responses
   isPartial?: boolean;
+  // Reasoning/chain-of-thought data
+  reasoning?: ReasoningData;
 }
 
 // Represents a branch of messages (a conversation path)
@@ -51,15 +53,145 @@ export interface MessageStats {
   model: string;
 }
 
+export interface ReasoningStep {
+  step: number;
+  title: string;
+  content: string;
+  type: 'analysis' | 'deduction' | 'planning' | 'reflection' | 'conclusion';
+}
+
+export interface ReasoningData {
+  steps: ReasoningStep[];
+  rawContent?: string;
+  model: string;
+  timestamp: Date;
+}
+
 export interface MediaAttachment {
   id: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'document' | 'audio' | 'file';
   url: string;
   name?: string;
   thumbnail?: string;
   generatedBy?: string;
   timestamp: Date;
+  mimeType?: string;
+  size?: number;
 }
+
+// Supported file types for upload
+export const SUPPORTED_IMAGE_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+  'image/svg+xml',
+  'image/bmp',
+  'image/tiff'
+] as const;
+
+export const SUPPORTED_DOCUMENT_TYPES = [
+  'application/pdf',
+  'text/plain',
+  'text/markdown',
+  'text/csv',
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'text/html',
+  'application/javascript',
+  'text/javascript',
+  'text/css',
+  'text/typescript',
+  'application/typescript'
+] as const;
+
+export const SUPPORTED_AUDIO_TYPES = [
+  'audio/mpeg',
+  'audio/wav',
+  'audio/ogg',
+  'audio/webm',
+  'audio/mp4',
+  'audio/aac'
+] as const;
+
+export const SUPPORTED_VIDEO_TYPES = [
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'video/quicktime'
+] as const;
+
+// All supported MIME types
+export const ALL_SUPPORTED_TYPES = [
+  ...SUPPORTED_IMAGE_TYPES,
+  ...SUPPORTED_DOCUMENT_TYPES,
+  ...SUPPORTED_AUDIO_TYPES,
+  ...SUPPORTED_VIDEO_TYPES
+] as const;
+
+// Maximum file size (10MB)
+export const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Get file type category from MIME type
+export function getFileTypeCategory(mimeType: string): 'image' | 'video' | 'document' | 'audio' | 'file' {
+  if (mimeType.startsWith('image/')) return 'image';
+  if (mimeType.startsWith('video/')) return 'video';
+  if (mimeType.startsWith('audio/')) return 'audio';
+  if (SUPPORTED_DOCUMENT_TYPES.includes(mimeType as any)) return 'document';
+  return 'file';
+}
+
+// Get file extension from MIME type
+export function getFileExtension(mimeType: string): string {
+  const extensions: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/avif': 'avif',
+    'image/svg+xml': 'svg',
+    'image/bmp': 'bmp',
+    'image/tiff': 'tiff',
+    'application/pdf': 'pdf',
+    'text/plain': 'txt',
+    'text/markdown': 'md',
+    'text/csv': 'csv',
+    'application/json': 'json',
+    'application/xml': 'xml',
+    'text/xml': 'xml',
+    'text/html': 'html',
+    'application/javascript': 'js',
+    'text/javascript': 'js',
+    'text/css': 'css',
+    'text/typescript': 'ts',
+    'application/typescript': 'ts',
+    'audio/mpeg': 'mp3',
+    'audio/wav': 'wav',
+    'audio/ogg': 'ogg',
+    'audio/webm': 'webm',
+    'audio/mp4': 'm4a',
+    'audio/aac': 'aac',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'video/ogg': 'ogv',
+    'video/quicktime': 'mov'
+  };
+  return extensions[mimeType] || 'bin';
+}
+
+// Image conversion formats
+export const IMAGE_CONVERSION_FORMATS = [
+  { format: 'png', mimeType: 'image/png', label: 'PNG' },
+  { format: 'jpeg', mimeType: 'image/jpeg', label: 'JPEG' },
+  { format: 'webp', mimeType: 'image/webp', label: 'WebP' },
+  { format: 'avif', mimeType: 'image/avif', label: 'AVIF' }
+] as const;
+
+export type ImageConversionFormat = typeof IMAGE_CONVERSION_FORMATS[number]['format'];
 
 export interface Chat {
   id: string;

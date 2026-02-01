@@ -23,6 +23,28 @@ export interface ImageConfig {
   image_size?: '1K' | '2K' | '4K';
 }
 
+export interface OpenRouterTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: string;
+      properties: Record<string, any>;
+      required?: string[];
+    };
+  };
+}
+
+export interface OpenRouterToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
 export interface OpenRouterRequest {
   model: string;
   messages: OpenRouterMessage[];
@@ -34,6 +56,8 @@ export interface OpenRouterRequest {
   stream?: boolean;
   modalities?: ('text' | 'image')[];
   image_config?: ImageConfig;
+  tools?: OpenRouterTool[];
+  tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
 }
 
 export interface OpenRouterUsage {

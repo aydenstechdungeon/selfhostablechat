@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Search, Plus, Settings } from 'lucide-svelte';
+	import { Search, Plus, Settings, BarChart3 } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { uiStore } from '$lib/stores/uiStore';
 	import ChatList from './ChatList.svelte';
@@ -15,6 +15,10 @@
 	
 	function handleSettings() {
 		goto('/settings');
+	}
+	
+	function handleAnalytics() {
+		goto('/dashboard');
 	}
 	
 	let textPrimary = $derived(theme === 'light' ? '#1f2937' : '#e2e8f0');
@@ -59,6 +63,16 @@
 	
 	<!-- Bottom Navigation -->
 	<div class="border-t p-3 space-y-1" style:border-color={border}>
+		<button 
+			class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm"
+			style:color={textSecondary}
+			onmouseenter={(e) => { e.currentTarget.style.backgroundColor = hoverBg; e.currentTarget.style.color = textPrimary; }}
+			onmouseleave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = textSecondary; }}
+			onclick={handleAnalytics}
+		>
+			<BarChart3 size={18} />
+			Analytics
+		</button>
 		<button 
 			class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm"
 			style:color={textSecondary}

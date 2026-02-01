@@ -1,4 +1,4 @@
-import { createOpenRouterClient, type OpenRouterMessage, type OpenRouterStreamChunk, type OpenRouterUsage, type ImageConfig } from './openrouter';
+import { createOpenRouterClient, type OpenRouterMessage, type OpenRouterStreamChunk, type OpenRouterUsage, type ImageConfig, type OpenRouterTool } from './openrouter';
 import { IMAGE_GENERATION_MODELS } from '$lib/types';
 
 export interface StreamChunk {
@@ -72,7 +72,8 @@ export async function* createSSEStream(
   apiKey: string,
   model: string,
   messages: OpenRouterMessage[],
-  imageOptions?: ImageGenerationOptions
+  imageOptions?: ImageGenerationOptions,
+  tools?: OpenRouterTool[]
 ): AsyncGenerator<StreamChunk> {
   const client = createOpenRouterClient(apiKey);
   const startTime = Date.now();
@@ -88,6 +89,12 @@ export async function* createSSEStream(
     messages,
     temperature: 0.7
   };
+
+  // Add tools if provided
+  if (tools && tools.length > 0) {
+    requestParams.tools = tools;
+    requestParams.tool_choice = 'auto';
+  }
 
   // Add image generation parameters for image generation models
   if (isImageGenModel) {
@@ -189,10 +196,100 @@ export async function* createSSEStream(
       model
     };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Check if the error is about tool use not being supported
+    if (tools && tools.length > 0 && errorMessage.includes('No endpoints found that support tool use')) {
+      console.log(`Model ${model} does not support tool use, retrying without tools...`);
+      
+      // Retry without tools
+      const retryParams: Parameters<typeof client.createStreamingCompletion>[0] = {
+        model,
+        messages,
+        temperature: 0.7
+      };
+      
+      // Add image generation parameters for image generation models (without tools)
+      if (isImageGenModel) {
+        retryParams.modalities = ['text', 'image'];
+        if (imageOptions?.aspectRatio || imageOptions?.imageSize) {
+          retryParams.image_config = {};
+          if (imageOptions.aspectRatio) {
+            retryParams.image_config.aspect_ratio = imageOptions.aspectRatio;
+          }
+          if (imageOptions.imageSize) {
+            retryParams.image_config.image_size = imageOptions.imageSize;
+          }
+        }
+      }
+      
+      try {
+        for await (const chunk of client.createStreamingCompletion(retryParams)) {
+          const delta = chunk.choices[0]?.delta;
+          
+          if (typeof delta?.content === 'string') {
+            fullContent += delta.content;
+            yield {
+              type: 'content',
+              content: delta.content,
+              model
+            };
+          }
+          
+          if (Array.isArray(delta?.content)) {
+            for (const part of delta.content) {
+              if (part.type === 'text' && part.text) {
+                fullContent += part.text;
+                yield {
+                  type: 'content',
+                  content: part.text,
+                  model
+                };
+              }
+            }
+          }
+
+          if (chunk.usage) {
+            usage = chunk.usage;
+          }
+        }
+
+        const latency = Date.now() - startTime;
+
+        if (usage) {
+          yield {
+            type: 'stats',
+            model,
+            stats: {
+              tokensInput: usage.prompt_tokens,
+              tokensOutput: usage.completion_tokens,
+              cost: calculateCost(model, usage.prompt_tokens, usage.completion_tokens),
+              latency,
+              model
+            }
+          };
+        }
+
+        yield {
+          type: 'done',
+          model
+        };
+        return;
+      } catch (retryError) {
+        console.error('Retry stream error:', retryError);
+        yield {
+          type: 'error',
+          error: retryError instanceof Error ? retryError.message : 'Unknown error',
+          model
+        };
+        return;
+      }
+    }
+    
     console.error('Stream error:', error);
     yield {
       type: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: errorMessage,
       model
     };
   }
@@ -202,11 +299,12 @@ export async function* createMultiModelStream(
   apiKey: string,
   models: string[],
   messages: OpenRouterMessage[],
-  imageOptions?: ImageGenerationOptions
+  imageOptions?: ImageGenerationOptions,
+  tools?: OpenRouterTool[]
 ): AsyncGenerator<MultiStreamChunk> {
   const streams = models.map(model => ({
     model,
-    generator: createSSEStream(apiKey, model, messages, imageOptions),
+    generator: createSSEStream(apiKey, model, messages, imageOptions, tools),
     stats: { tokensInput: 0, tokensOutput: 0, cost: 0, latency: 0, model }
   }));
 
