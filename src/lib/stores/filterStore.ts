@@ -151,10 +151,11 @@ export function formatCost(cost: number): string {
   
   // If cost is less than 0.01, show up to 4 decimal places
   if (cost < 0.01) {
-    // Remove trailing zeros after 2 decimal places
+    // Format with 4 decimal places, then trim trailing zeros
     const formatted = cost.toFixed(4);
     // Trim trailing zeros but keep at least 2 decimal places
-    const trimmed = formatted.replace(/(\.[0-9]*[1-9])0+$/, '$1').replace(/\.$/, '');
+    // Match: decimal point followed by 0-2 digits (keep), then optional non-zero digits, then zeros
+    const trimmed = formatted.replace(/(\.[0-9]{2})[0-9]*$/, '$1');
     return `$${trimmed}`;
   }
   

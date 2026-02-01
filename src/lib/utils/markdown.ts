@@ -113,14 +113,14 @@ function wrapTablesInContainers(html: string): string {
 // HTML escape function that doesn't require DOM (works in SSR)
 export function escapeHtml(text: string): string {
 	const htmlEscapes: Record<string, string> = {
-		'&': '&',
-		'<': '<',
-		'>': '>',
-		'"': '"',
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		'"': '&quot;',
 		"'": '&#x27;',
 		'/': '&#x2F;'
 	};
-	
+
 	return text.replace(/[&<>"'/]/g, (char) => htmlEscapes[char] || char);
 }
 

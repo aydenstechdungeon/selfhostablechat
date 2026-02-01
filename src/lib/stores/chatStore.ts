@@ -814,15 +814,26 @@ const createChatStore = () => {
 
         // Rebuild visible messages to ensure correct state
         const finalMessages = await buildVisibleMessages(state!.activeChatId!, newActivePath);
-        update(s => ({ 
-          ...s, 
-          messages: finalMessages, 
-          isStreaming: false, 
-          streamingBuffer: '', 
-          streamingModel: null, 
-          abortController: null,
-          partialContentMap: new Map(),
-          streamingMessageIds: []
+        update(s => ({
+          ...s,
+          // Only update messages and streaming state if user is still viewing this chat
+          // If user switched to a different chat, preserve their current context
+          ...(s.activeChatId === state!.activeChatId ? {
+            messages: finalMessages,
+            isStreaming: false,
+            streamingBuffer: '',
+            streamingModel: null,
+            abortController: null,
+            partialContentMap: new Map(),
+            streamingMessageIds: []
+          } : {
+            // If user is on a different chat, only clear streaming state
+            // for the current active chat if it matches
+            isStreaming: s.activeChatId === state!.activeChatId ? false : s.isStreaming,
+            abortController: s.activeChatId === state!.activeChatId ? null : s.abortController,
+            partialContentMap: s.activeChatId === state!.activeChatId ? new Map() : s.partialContentMap,
+            streamingMessageIds: s.activeChatId === state!.activeChatId ? [] : s.streamingMessageIds
+          })
         }));
 
         // Get chat info for completion tracking
@@ -1295,15 +1306,26 @@ const createChatStore = () => {
 
         // Rebuild visible messages to ensure correct final state
         const finalMessages = await buildVisibleMessages(chatId, newActivePath);
-        update(s => ({ 
-          ...s, 
-          messages: finalMessages,
-          isStreaming: false,
-          streamingBuffer: '',
-          streamingModel: null,
-          abortController: null,
-          partialContentMap: new Map(),
-          streamingMessageIds: []
+        update(s => ({
+          ...s,
+          // Only update messages and streaming state if user is still viewing this chat
+          // If user switched to a different chat, preserve their current context
+          ...(s.activeChatId === chatId ? {
+            messages: finalMessages,
+            isStreaming: false,
+            streamingBuffer: '',
+            streamingModel: null,
+            abortController: null,
+            partialContentMap: new Map(),
+            streamingMessageIds: []
+          } : {
+            // If user is on a different chat, only clear streaming state
+            // for the current active chat if it matches
+            isStreaming: s.activeChatId === chatId ? false : s.isStreaming,
+            abortController: s.activeChatId === chatId ? null : s.abortController,
+            partialContentMap: s.activeChatId === chatId ? new Map() : s.partialContentMap,
+            streamingMessageIds: s.activeChatId === chatId ? [] : s.streamingMessageIds
+          })
         }));
 
         // Get chat info for completion tracking

@@ -1,4 +1,5 @@
 import { createOpenRouterClient, AUTO_SUPPORTED_MODELS, IMAGE_MODELS, IMAGE_GENERATION_MODELS, ROUTER_MODEL, type OpenRouterMessage } from './openrouter';
+import { AVAILABLE_MODELS } from '$lib/stores/modelStore';
 
 export interface RouterDecision {
   model: string;
@@ -201,10 +202,14 @@ export function getModelCapabilities(model: string): {
   contextWindow: number;
 } {
   const supportsImages = isImageModel(model);
-  
+
+  // Look up the actual context window from AVAILABLE_MODELS
+  const modelInfo = AVAILABLE_MODELS.find(m => m.id === model);
+  const contextWindow = modelInfo?.contextWindow || 128000; // Default fallback
+
   return {
     supportsImages,
     supportsStreaming: true,
-    contextWindow: 128000
+    contextWindow
   };
 }

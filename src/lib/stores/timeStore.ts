@@ -11,7 +11,7 @@ import { readable } from 'svelte/store';
 export function createTimeStore() {
   return readable(new Date(), (set) => {
     let intervalId: ReturnType<typeof setInterval> | null = null;
-    let currentInterval = 5000;
+    let currentInterval = 1500;
     let startTime = Date.now();
     
     const tick = () => {
@@ -22,14 +22,14 @@ export function createTimeStore() {
       let newInterval: number;
       
       if (elapsed < 60000) {
-        // Under 1 minute: update every 5 seconds for "Xs ago" accuracy
-        newInterval = 5000;
+        // Under 1 minute: update every 1.5 seconds for "Xs ago" accuracy
+        newInterval = 1500;
       } else if (elapsed < 300000) {
         // 1-5 minutes: update every 30 seconds for "Xm ago" accuracy
         newInterval = 30000;
       } else {
         // Over 5 minutes: update every minute
-        newInterval = 60000;
+        newInterval = 65000;
       }
       
       // If interval changed, restart with new timing

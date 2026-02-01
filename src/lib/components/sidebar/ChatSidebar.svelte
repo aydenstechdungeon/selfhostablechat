@@ -10,8 +10,8 @@
 	let theme = $derived($uiStore.theme);
 	
 	async function handleNewChat() {
-		// Reset the chat store to clear any generating state from previous chats
-		// This allows multitasking - previous chat continues generating in background
+		// Soft reset preserves any ongoing generation in other chats
+		// This allows multitasking - creating new chats while others generate
 		chatStore.reset();
 		// Navigate to /chat/new - UUID will be generated when first message is sent
 		goto('/chat/new');

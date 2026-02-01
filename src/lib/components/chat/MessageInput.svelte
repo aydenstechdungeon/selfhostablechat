@@ -80,6 +80,8 @@
 	async function handleSubmit() {
 		if ((!message.trim() && attachedFiles.length === 0) || isSubmitting) return;
 		
+		// Allow sending messages even during streaming - each chat has independent state
+		// The chatStore handles the per-chat streaming state management
 		isSubmitting = true;
 		const userMessage = message.trim();
 		message = '';
@@ -270,7 +272,7 @@
 					<Paperclip size={18} />
 				</button>
 				<textarea
-					class="w-full pl-12 pr-4 py-3 rounded-xl border resize-none focus:outline-none transition-all duration-200 focus:ring-2 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+					class="w-full pl-12 pr-4 py-3 rounded-xl border resize-none focus:outline-none transition-all duration-200 focus:ring-2 focus:ring-opacity-50"
 					style:background-color={inputBg}
 					style:border-color={border}
 					style:color={text}
@@ -280,11 +282,12 @@
 						? "Add a message about these files..." 
 						: isImageGenModel 
 							? "Describe the image you want to generate..." 
-							: "Type your message or drop files here..."}
+							: isStreamingState
+								? "Generation in progress... Type your next message"
+								: "Type your message or drop files here..."}
 					rows="1"
 					bind:value={message}
 					onkeydown={handleKeyDown}
-					disabled={isStreamingState}
 					style="min-height: 48px; max-height: 320px; field-sizing: content;"
 				></textarea>
 				{#if isImageGenModel}

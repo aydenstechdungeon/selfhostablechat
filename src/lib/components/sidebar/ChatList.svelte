@@ -32,9 +32,26 @@
   let deleteModalOpen = $state(false);
   let chatToDelete: string | null = $state(null);
   
+  // Preserve sidebar scroll position across updates
+  let preservedSidebarScrollTop = $state(0);
+  
   // Update search query in filter store
   $effect(() => {
     filterStore.setSearchQuery(searchQuery);
+  });
+  
+  // Handle scroll to preserve position
+  function handleSidebarScroll() {
+    if (scrollContainer) {
+      preservedSidebarScrollTop = scrollContainer.scrollTop;
+    }
+  }
+  
+  // Restore scroll position after chats load (unless it's initial load)
+  $effect(() => {
+    if (!isLoading && scrollContainer && preservedSidebarScrollTop > 0) {
+      scrollContainer.scrollTop = preservedSidebarScrollTop;
+    }
   });
   
   // Only show visible chats
@@ -54,7 +71,14 @@
   onMount(() => {
     loadChats();
     // Listen for chat updates from other components
-    const handleChatUpdate = () => loadChats();
+    // Use a debounced reload to prevent rapid re-renders during streaming
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleChatUpdate = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadChats();
+      }, 100);
+    };
     window.addEventListener('chat-updated', handleChatUpdate);
     
     // Set up intersection observer for infinite scroll
@@ -64,6 +88,7 @@
     
     return () => {
       window.removeEventListener('chat-updated', handleChatUpdate);
+      if (debounceTimer) clearTimeout(debounceTimer);
       if (observer) {
         observer.disconnect();
       }
@@ -171,6 +196,7 @@
 <div 
   bind:this={scrollContainer}
   class="chat-list flex-1 overflow-y-auto px-2 py-2"
+  onscroll={handleSidebarScroll}
 >
   {#if isLoading}
     <div class="text-center py-8 text-sm" style:color={textSecondary}>

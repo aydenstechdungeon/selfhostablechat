@@ -18,6 +18,10 @@
 	let userHasScrolledUp = $state(false);
 	let lastMessageCount = $state(0);
 	
+	// Preserve scroll position across re-renders
+	let preservedScrollTop = $state(0);
+	let wasStreaming = $state(false);
+	
 	// Map to store siblings for each message
 	let messageSiblings = $state(new Map<string, { siblings: Message[], currentIndex: number }>());
 	
@@ -78,6 +82,11 @@
 		
 		// Track if user has scrolled up (away from bottom)
 		userHasScrolledUp = !isNearBottom;
+		
+		// Preserve current scroll position for restoration after streaming
+		if (userHasScrolledUp) {
+			preservedScrollTop = scrollTop;
+		}
 	}
 	
 	onMount(() => {
@@ -87,6 +96,20 @@
 	// Auto-scroll effect - only scroll if user hasn't manually scrolled up
 	$effect(() => {
 		const currentMessageCount = messages.length;
+		
+		// Detect when streaming transitions from true to false (generation completed)
+		if (wasStreaming && !isStreaming && userHasScrolledUp) {
+			// Restore the scroll position that was preserved
+			if (messageContainer && preservedScrollTop > 0) {
+				messageContainer.scrollTop = preservedScrollTop;
+			}
+		}
+		
+		// Preserve scroll position before streaming state changes
+		if (!wasStreaming && isStreaming && messageContainer) {
+			preservedScrollTop = messageContainer.scrollTop;
+		}
+		wasStreaming = isStreaming;
 		
 		// Only auto-scroll if:
 		// 1. There are messages

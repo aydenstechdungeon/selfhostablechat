@@ -55,7 +55,7 @@ async function convertImage(
 	imageUrl: string,
 	targetFormat: string,
 	quality: number = 92,
-	apiKey: string
+	_apiKey: string // API key validated at route level but not needed for this conversion
 ): Promise<{ success: boolean; converted_url?: string; error?: string }> {
 	try {
 		// For base64 images, we validate and return with updated mime type

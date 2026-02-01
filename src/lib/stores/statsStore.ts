@@ -138,14 +138,17 @@ const createStatsStore = () => {
           costOverTime,
           tokenUsageOverTime: costOverTime.map(d => ({ ...d, value: d.value * 1000 })), // Approximate
           messagesPerModel,
-          latencyDistribution: Object.entries(modelStats).map(([model, stats]) => ({
-            model: model.split('/').pop() || model,
-            min: stats.latency / stats.count * 0.5,
-            q1: stats.latency / stats.count * 0.75,
-            median: stats.latency / stats.count,
-            q3: stats.latency / stats.count * 1.25,
-            max: stats.latency / stats.count * 1.5
-          }))
+          latencyDistribution: Object.entries(modelStats).map(([model, stats]) => {
+            const avgLatency = stats.count > 0 ? stats.latency / stats.count : 0;
+            return {
+              model: model.split('/').pop() || model,
+              min: avgLatency * 0.5,
+              q1: avgLatency * 0.75,
+              median: avgLatency,
+              q3: avgLatency * 1.25,
+              max: avgLatency * 1.5
+            };
+          })
         };
 
         update(state => ({
