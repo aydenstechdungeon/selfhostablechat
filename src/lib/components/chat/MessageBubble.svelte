@@ -50,29 +50,50 @@
 	// Check if this message has siblings (is part of a branch)
 	let hasSiblings = $derived(siblings.length > 1);
 	
-	// Parse markdown content for assistant messages (including during streaming)
+	// Parse markdown content for assistant messages with streaming awareness
 	let parsedContent = $derived(message.role === 'assistant'
-		? parseMarkdown(message.content)
+		? parseMarkdown(message.content, showStreaming)
 		: null
 	);
 	
 	// Initialize copy buttons after content updates (debounced for streaming performance)
 	let initTimeout: ReturnType<typeof setTimeout> | null = null;
+	let lastContentLength = $state(0);
+	
 	$effect(() => {
 		if (parsedContent && contentElement) {
+			// Skip re-initializing for small content changes during streaming
+			if (showStreaming) {
+				const contentLength = message.content.length;
+				// Only re-init every ~100 chars during streaming or when streaming ends
+				if (contentLength - lastContentLength < 100 && showStreaming) {
+					return;
+				}
+				lastContentLength = contentLength;
+			}
+			
 			// Clear previous timeout to debounce during streaming
 			if (initTimeout) clearTimeout(initTimeout);
 			// Delay initialization to avoid excessive DOM updates during streaming
 			initTimeout = setTimeout(() => {
 				tick().then(() => {
-					initCodeCopyButtons(contentElement!);
+					if (contentElement) {
+						initCodeCopyButtons(contentElement);
+					}
 				});
-			}, showStreaming ? 500 : 50);
+			}, showStreaming ? 800 : 100);
 		}
 		
 		return () => {
 			if (initTimeout) clearTimeout(initTimeout);
 		};
+	});
+	
+	// Reset lastContentLength when streaming ends
+	$effect(() => {
+		if (!showStreaming) {
+			lastContentLength = 0;
+		}
 	});
 	
 	function startEdit() {

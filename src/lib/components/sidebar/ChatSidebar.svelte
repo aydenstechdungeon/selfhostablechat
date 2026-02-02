@@ -1,18 +1,25 @@
 <script lang="ts">
-	import { Search, Plus, Settings, BarChart3 } from 'lucide-svelte';
+	import { Search, Plus, Settings, BarChart3, Loader2 } from 'lucide-svelte';
 	import { goto } from '$app/navigation';
 	import { uiStore } from '$lib/stores/uiStore';
 	import { chatStore } from '$lib/stores/chatStore';
+	import { streamingStore } from '$lib/stores/streamingStore';
 	import ChatList from './ChatList.svelte';
 	import ChatFilters from './ChatFilters.svelte';
 	
 	let searchQuery = $state('');
 	let theme = $derived($uiStore.theme);
 	
+	// Track active generating chats for global indicator
+	let activeStreamCount = $derived(
+		Array.from($streamingStore.streamingChats.values()).filter(s => s.isStreaming).length
+	);
+	
 	async function handleNewChat() {
 		// Soft reset preserves any ongoing generation in other chats
 		// This allows multitasking - creating new chats while others generate
 		chatStore.reset();
+		streamingStore.setActiveChat(null);
 		// Navigate to /chat/new - UUID will be generated when first message is sent
 		goto('/chat/new');
 	}
@@ -37,6 +44,15 @@
 		<div class="flex items-center gap-2">
 			<img src="/webaicat128.webp" alt="Logo" class="w-6 h-6 rounded" />
 			<h2 class="text-lg font-bold" style:color={textPrimary}>Chats</h2>
+			{#if activeStreamCount > 0}
+				<span 
+					class="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-500/20 text-blue-500"
+					title="{activeStreamCount} chat{activeStreamCount > 1 ? 's' : ''} generating"
+				>
+					<Loader2 size={12} class="animate-spin" />
+					{activeStreamCount}
+				</span>
+			{/if}
 		</div>
 		<button 
 			class="new-chat px-3 py-2 rounded-lg bg-[#4299e1] text-white text-sm font-medium flex items-center gap-2 hover:bg-[#3182ce] transition-colors"

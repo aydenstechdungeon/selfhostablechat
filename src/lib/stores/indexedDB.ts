@@ -43,8 +43,52 @@ interface StoredBranch {
   messageCount: number;
 }
 
+// Simple in-memory cache for frequently accessed data
+class QueryCache {
+  private cache = new Map<string, { data: any; timestamp: number }>();
+  private maxSize = 100;
+  private ttl = 30000; // 30 seconds TTL
+
+  get(key: string): any | undefined {
+    const entry = this.cache.get(key);
+    if (!entry) return undefined;
+    
+    // Check if expired
+    if (Date.now() - entry.timestamp > this.ttl) {
+      this.cache.delete(key);
+      return undefined;
+    }
+    
+    return entry.data;
+  }
+
+  set(key: string, data: any) {
+    if (this.cache.size >= this.maxSize) {
+      // Remove oldest entry
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) {
+        this.cache.delete(firstKey);
+      }
+    }
+    this.cache.set(key, { data, timestamp: Date.now() });
+  }
+
+  invalidate(keyPrefix: string) {
+    for (const key of this.cache.keys()) {
+      if (key.startsWith(keyPrefix)) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  clear() {
+    this.cache.clear();
+  }
+}
+
 class ChatDatabase {
   private db: IDBDatabase | null = null;
+  private cache = new QueryCache();
 
   async init(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -99,6 +143,11 @@ class ChatDatabase {
 
   // Chat operations
   async getAllChats(): Promise<StoredChat[]> {
+    // Check cache first
+    const cacheKey = 'allChats';
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+    
     if (!this.db) await this.init();
     
     return new Promise((resolve, reject) => {
@@ -115,6 +164,8 @@ class ChatDatabase {
           chats.push(cursor.value);
           cursor.continue();
         } else {
+          // Cache the result
+          this.cache.set(cacheKey, chats);
           resolve(chats);
         }
       };
@@ -124,6 +175,11 @@ class ChatDatabase {
   }
 
   async getChat(chatId: string): Promise<StoredChat | null> {
+    // Check cache first
+    const cacheKey = `chat:${chatId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    
     if (!this.db) await this.init();
 
     return new Promise((resolve, reject) => {
@@ -131,7 +187,11 @@ class ChatDatabase {
       const store = transaction.objectStore('chats');
       const request = store.get(chatId);
 
-      request.onsuccess = () => resolve(request.result || null);
+      request.onsuccess = () => {
+        const result = request.result || null;
+        this.cache.set(cacheKey, result);
+        resolve(result);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -144,7 +204,12 @@ class ChatDatabase {
       const store = transaction.objectStore('chats');
       const request = store.put(chat);
 
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        // Invalidate relevant caches
+        this.cache.invalidate('allChats');
+        this.cache.invalidate(`chat:${chat.id}`);
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -185,13 +250,24 @@ class ChatDatabase {
         }
       };
 
-      transaction.oncomplete = () => resolve();
+      transaction.oncomplete = () => {
+        // Invalidate relevant caches
+        this.cache.invalidate('allChats');
+        this.cache.invalidate(`chat:${chatId}`);
+        this.cache.invalidate(`messages:${chatId}`);
+        resolve();
+      };
       transaction.onerror = () => reject(transaction.error);
     });
   }
 
   // Message operations
   async getMessages(chatId: string): Promise<StoredMessage[]> {
+    // Check cache first
+    const cacheKey = `messages:${chatId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached) return cached;
+    
     if (!this.db) await this.init();
 
     return new Promise((resolve, reject) => {
@@ -210,6 +286,8 @@ class ChatDatabase {
         } else {
           // Sort by createdAt
           messages.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          // Cache the result
+          this.cache.set(cacheKey, messages);
           resolve(messages);
         }
       };
@@ -219,6 +297,11 @@ class ChatDatabase {
   }
 
   async getMessage(messageId: string): Promise<StoredMessage | null> {
+    // Check cache first
+    const cacheKey = `message:${messageId}`;
+    const cached = this.cache.get(cacheKey);
+    if (cached !== undefined) return cached;
+    
     if (!this.db) await this.init();
 
     return new Promise((resolve, reject) => {
@@ -226,7 +309,11 @@ class ChatDatabase {
       const store = transaction.objectStore('messages');
       const request = store.get(messageId);
 
-      request.onsuccess = () => resolve(request.result || null);
+      request.onsuccess = () => {
+        const result = request.result || null;
+        this.cache.set(cacheKey, result);
+        resolve(result);
+      };
       request.onerror = () => reject(request.error);
     });
   }
@@ -239,7 +326,12 @@ class ChatDatabase {
       const store = transaction.objectStore('messages');
       const request = store.put(message);
 
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        // Invalidate relevant caches
+        this.cache.invalidate(`messages:${message.chatId}`);
+        this.cache.invalidate(`message:${message.id}`);
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   }

@@ -267,6 +267,9 @@ export interface UserSettings {
   fontSize: number;
   compactMode: boolean;
   codeSyntaxTheme: string;
+  // Privacy-focused settings
+  privacyOnlyProviders: boolean;
+  disableChatStoring: boolean;
 }
 
 // Note: Old version interfaces removed - now using tree-based branching with MessageBranch
@@ -319,43 +322,37 @@ export const IMAGE_MODELS = [
   'openai/gpt-4o-mini',
   'openai/gpt-5.1',
   'openai/gpt-5.2',
-  'openai/gpt-5-mini',
-  'anthropic/claude-4.5-sonnet',
+  'openai/gpt-5.2-pro',
+  'anthropic/claude-sonnet-4.5',
   'anthropic/claude-opus-4.5',
   'google/gemini-2.5-flash-image',
-  'google/gemini-3-pro-image-preview'
+  'google/gemini-3-pro-image-preview',
+  'moonshotai/kimi-k2.5'
 ] as const;
 
 // Models that can generate images
 export const IMAGE_GENERATION_MODELS = [
   'google/gemini-2.5-flash-image',
-  'google/gemini-3-pro-image-preview',
-  'black-forest-labs/flux.2-pro',
-  'black-forest-labs/flux.2-flex',
-  'sourceful/riverflow-v2-standard-preview',
-  'bytedance-seed/seedream-4.5'
+  'google/gemini-3-pro-image-preview'
 ] as const;
 
 export const AUTO_SUPPORTED_MODELS = [
-  'openai/gpt-oss-20b:free',
-  'openai/gpt-oss-20b',
-  'openai/gpt-oss-120b',
+  'openai/gpt-oss-safeguard-20b:free',
+  'openai/gpt-oss-safeguard-20b',
   'openai/gpt-4o-mini',
   'openai/gpt-5.1',
   'openai/gpt-5.2',
-  'openai/gpt-5-mini',
+  'openai/gpt-5.2-pro',
   'x-ai/grok-4.1-fast',
   'google/gemini-2.5-flash-lite',
   'google/gemini-3-flash-preview',
-  'anthropic/claude-4.5-sonnet',
+  'anthropic/claude-sonnet-4.5',
   'anthropic/claude-opus-4.5',
-  'bytedance-seed/seedream-4.5',
   'google/gemini-3-pro-image-preview',
   'google/gemini-2.5-flash-image',
   'deepseek/deepseek-v3.2',
-  'meta/llama-4-scout',
-  'meta/llama-4-maverick',
-  'moonshotai/kimi-k2',
+  'meta-llama/llama-4-scout',
+  'meta-llama/llama-4-maverick',
   'moonshotai/kimi-k2.5',
   'minimax/minimax-m2.1'
 ] as const;

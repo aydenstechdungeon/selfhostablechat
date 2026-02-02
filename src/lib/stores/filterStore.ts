@@ -1,8 +1,10 @@
 import { writable, derived } from 'svelte/store';
-import type { StoredChat } from './indexedDB';
+import type { StoredChat, StoredMessage } from './indexedDB';
+import { chatDB } from './indexedDB';
 
 export type SortOption = 'recent' | 'expensive' | 'cheapest' | 'tokens' | 'messages' | 'oldest';
 export type DateRange = 'all' | 'today' | 'week' | 'month' | 'year';
+export type SearchMode = 'name' | 'name_and_content';
 
 export interface FilterState {
   sortBy: SortOption;
@@ -11,6 +13,7 @@ export interface FilterState {
   maxCost: number | null;
   selectedModels: string[];
   searchQuery: string;
+  searchMode: SearchMode;
 }
 
 const initialState: FilterState = {
@@ -19,7 +22,8 @@ const initialState: FilterState = {
   minCost: null,
   maxCost: null,
   selectedModels: [],
-  searchQuery: ''
+  searchQuery: '',
+  searchMode: 'name'
 };
 
 function createFilterStore() {
@@ -49,30 +53,67 @@ function createFilterStore() {
     
     setSearchQuery: (searchQuery: string) => update(state => ({ ...state, searchQuery })),
     
+    setSearchMode: (searchMode: SearchMode) => update(state => ({ ...state, searchMode })),
+    
     reset: () => set(initialState),
     
     resetFilters: () => update(state => ({ 
       ...initialState, 
-      searchQuery: state.searchQuery 
+      searchQuery: state.searchQuery,
+      searchMode: state.searchMode
     }))
   };
 }
 
 export const filterStore = createFilterStore();
 
+// Cache for message content search
+let messageCache: Map<string, StoredMessage[]> = new Map();
+
 // Helper function to filter and sort chats
-export function filterAndSortChats(
+export async function filterAndSortChats(
   chats: StoredChat[], 
   filters: FilterState
-): StoredChat[] {
+): Promise<StoredChat[]> {
   let result = [...chats];
 
   // Apply search filter
   if (filters.searchQuery.trim()) {
     const query = filters.searchQuery.toLowerCase();
-    result = result.filter(chat => 
-      chat.title.toLowerCase().includes(query)
-    );
+    
+    if (filters.searchMode === 'name') {
+      // Search by name only
+      result = result.filter(chat => 
+        chat.title.toLowerCase().includes(query)
+      );
+    } else {
+      // Search by name and content
+      const chatIdsWithMatch = await Promise.all(
+        result.map(async (chat) => {
+          // Check title first
+          if (chat.title.toLowerCase().includes(query)) {
+            return chat.id;
+          }
+          
+          // Check message content
+          try {
+            const messages = await chatDB.getMessages(chat.id);
+            const hasContentMatch = messages.some(msg => 
+              msg.content.toLowerCase().includes(query)
+            );
+            if (hasContentMatch) {
+              return chat.id;
+            }
+          } catch (e) {
+            console.error('Failed to search messages:', e);
+          }
+          return null;
+        })
+      );
+      
+      const matchingIds = new Set(chatIdsWithMatch.filter(Boolean) as string[]);
+      result = result.filter(chat => matchingIds.has(chat.id));
+    }
   }
 
   // Apply date range filter
@@ -111,12 +152,16 @@ export function filterAndSortChats(
     result = result.filter(chat => chat.totalCost <= filters.maxCost!);
   }
 
-  // Apply model filter
+  // Apply model filter - case insensitive matching
   if (filters.selectedModels.length > 0) {
     result = result.filter(chat => {
-      // Check if chat has any of the selected models
       const chatModels = chat.models || [];
-      return filters.selectedModels.some(model => chatModels.includes(model));
+      // Use case-insensitive matching for model IDs
+      return filters.selectedModels.some(selectedModel => 
+        chatModels.some(chatModel => 
+          chatModel.toLowerCase() === selectedModel.toLowerCase()
+        )
+      );
     });
   }
 

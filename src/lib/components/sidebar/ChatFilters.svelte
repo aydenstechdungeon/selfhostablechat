@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { ChevronDown, X, SlidersHorizontal, Check } from 'lucide-svelte';
+	import { ChevronDown, X, SlidersHorizontal, Check, Search, FileText } from 'lucide-svelte';
 	import { uiStore } from '$lib/stores/uiStore';
-	import { filterStore, type SortOption, type DateRange } from '$lib/stores/filterStore';
+	import { filterStore, type SortOption, type DateRange, type SearchMode } from '$lib/stores/filterStore';
 	import { AVAILABLE_MODELS } from '$lib/stores/modelStore';
 	import { 
 		SiOpenai, 
@@ -9,8 +9,17 @@
 		SiGoogle, 
 		SiMeta,
 		SiMistralai,
-		SiX
+		SiClaude,
+		SiGooglegemini
 	} from '@icons-pack/svelte-simple-icons';
+	import { 
+		DeepSeekLogo, 
+		PerplexityAILogo, 
+		XAIGrokLogo,
+		KimiLogo,
+		QwenLogo,
+		GrokLogo
+	} from '@selemondev/svgl-svelte';
 	
 	let filtersExpanded = $state(false);
 	let theme = $derived($uiStore.theme);
@@ -23,7 +32,27 @@
 		'Google': SiGoogle,
 		'Meta': SiMeta,
 		'Mistral': SiMistralai,
-		'xAI': SiX,
+		'xAI': XAIGrokLogo,
+		'DeepSeek': DeepSeekLogo,
+		'Perplexity': PerplexityAILogo,
+		'Moonshot': KimiLogo,
+		'Qwen': QwenLogo,
+	};
+	
+	// Model-specific icon mapping (for actual model logos)
+	const modelIcons: Record<string, any> = {
+		// Claude models use SiClaude
+		'anthropic/claude-opus-4.5': SiClaude,
+		'anthropic/claude-sonnet-4.5': SiClaude,
+		'anthropic/claude-haiku-4.5': SiClaude,
+		// Gemini models use SiGooglegemini
+		'google/gemini-2.5-flash-lite': SiGooglegemini,
+		'google/gemini-3-flash-preview': SiGooglegemini,
+		'google/gemini-3-pro-preview': SiGooglegemini,
+		'google/gemini-2.5-flash-image': SiGooglegemini,
+		'google/gemini-3-pro-image-preview': SiGooglegemini,
+		// Grok models use Grok icon
+		'x-ai/grok-4.1-fast': GrokLogo,
 	};
 	
 	function getBrandColor(brand: string) {
@@ -38,6 +67,8 @@
 			case 'minimax': return '#ff4d4f';
 			case 'moonshot': return '#00b96b';
 			case 'black forest labs': return '#8B4513';
+			case 'qwen': return '#8B5CF6';
+			case 'z.ai': return '#10B981';
 			default: return theme === 'light' ? '#3b82f6' : '#4299e1';
 		}
 	}
@@ -51,7 +82,7 @@
 			grouped.set(model.brand, existing);
 		});
 		// Sort brands: OpenAI, Anthropic, Google first, then alphabetically
-		const brandOrder = ['OpenAI', 'Anthropic', 'Google', 'xAI', 'Meta', 'Mistral'];
+		const brandOrder = ['OpenAI', 'Anthropic', 'Google', 'xAI', 'Meta', 'Mistral', 'DeepSeek', 'Moonshot', 'MiniMax', 'Qwen', 'Z.AI'];
 		return Array.from(grouped.entries()).sort((a, b) => {
 			const aIndex = brandOrder.indexOf(a[0]);
 			const bIndex = brandOrder.indexOf(b[0]);
@@ -62,12 +93,13 @@
 		});
 	});
 	
-	// Check if any filters are active (excluding sort and search)
+	// Check if any filters are active (excluding sort)
 	let hasActiveFilters = $derived(
 		filters.dateRange !== 'all' || 
 		filters.minCost !== null || 
 		filters.maxCost !== null ||
-		filters.selectedModels.length > 0
+		filters.selectedModels.length > 0 ||
+		filters.searchMode !== 'name'
 	);
 	
 	let textPrimary = $derived(theme === 'light' ? '#1f2937' : '#e2e8f0');
@@ -121,6 +153,10 @@
 		filterStore.toggleModel(modelId);
 	}
 	
+	function setSearchMode(mode: SearchMode) {
+		filterStore.setSearchMode(mode);
+	}
+	
 	function clearFilters() {
 		filterStore.resetFilters();
 	}
@@ -146,13 +182,16 @@
 		</div>
 		<div class="flex items-center gap-2">
 			{#if hasActiveFilters}
-				<button
-					class="p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors"
+				<span
+					class="p-1 rounded hover:bg-red-500/20 text-red-400 transition-colors cursor-pointer"
 					onclick={(e) => { e.stopPropagation(); clearFilters(); }}
 					title="Clear filters"
+					role="button"
+					tabindex="0"
+					onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); clearFilters(); }}}
 				>
 					<X size={12} />
-				</button>
+				</span>
 			{/if}
 			<ChevronDown 
 				size={16} 
@@ -163,6 +202,35 @@
 	
 	{#if filtersExpanded}
 		<div class="filters-content px-4 py-4 space-y-4" style:background-color={contentBg}>
+			<!-- Search Mode -->
+			<div class="filter-group">
+				<span class="block mb-2 text-xs uppercase tracking-wide font-medium" style:color={textSecondary}>
+					Search In
+				</span>
+				<div class="flex gap-2">
+					<button
+						onclick={() => setSearchMode('name')}
+						class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all border"
+						style:background-color={filters.searchMode === 'name' ? `${accentColor}30` : selectBg}
+						style:color={filters.searchMode === 'name' ? textPrimary : textSecondary}
+						style:border-color={filters.searchMode === 'name' ? accentColor : border}
+					>
+						<Search size={12} />
+						Name Only
+					</button>
+					<button
+						onclick={() => setSearchMode('name_and_content')}
+						class="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all border"
+						style:background-color={filters.searchMode === 'name_and_content' ? `${accentColor}30` : selectBg}
+						style:color={filters.searchMode === 'name_and_content' ? textPrimary : textSecondary}
+						style:border-color={filters.searchMode === 'name_and_content' ? accentColor : border}
+					>
+						<FileText size={12} />
+						Chat + Name
+					</button>
+				</div>
+			</div>
+			
 			<!-- Sort By -->
 			<div class="filter-group">
 				<label for="sortBy" class="block mb-2 text-xs uppercase tracking-wide font-medium" style:color={textSecondary}>
@@ -252,9 +320,15 @@
 						<div class="brand-group">
 							<div class="flex items-center gap-1.5 mb-1.5 px-1">
 								{#if BrandIcon}
-									{@const iconColor = brand.toLowerCase() === 'xai' && theme === 'dark' ? '#000000' : '#ffffff'}
-									<div class="w-4 h-4 rounded flex items-center justify-center" style:background-color={brandColor}>
-										<BrandIcon size={10} color={iconColor} />
+									{@const iconColor = brand.toLowerCase() === 'xai' && theme === 'light' ? '#ffffff' : '#000000'}
+									{@const bgColor = brand.toLowerCase() === 'xai' ? (theme === 'light' ? '#000000' : '#ffffff') : brandColor}
+									{@const isSvgBrandIcon = BrandIcon === DeepSeekLogo || BrandIcon === PerplexityAILogo || BrandIcon === XAIGrokLogo || BrandIcon === KimiLogo || BrandIcon === QwenLogo || BrandIcon === GrokLogo}
+									<div class="w-4 h-4 rounded flex items-center justify-center overflow-hidden" style:background-color={bgColor}>
+										{#if isSvgBrandIcon}
+											<BrandIcon height={10} width={10} />
+										{:else}
+											<BrandIcon size={10} color={iconColor} />
+										{/if}
 									</div>
 								{:else}
 									<div class="w-4 h-4 rounded flex items-center justify-center text-[8px] text-white font-bold" style:background-color={brandColor}>
@@ -265,6 +339,8 @@
 							</div>
 							<div class="grid grid-cols-2 gap-1">
 								{#each models as model}
+									{@const ModelIcon = modelIcons[model.id]}
+										{@const showModelIcon = ModelIcon && (brand === 'Anthropic' || brand === 'Google' || brand === 'xAI')}
 									<button
 										onclick={() => toggleModel(model.id)}
 										class="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium text-left transition-all border"
@@ -276,7 +352,16 @@
 									>
 										{#if filters.selectedModels.includes(model.id)}
 											<Check size={10} color={brandColor} />
-										{/if}
+									{:else if showModelIcon}
+										{@const isModelIconSvg = ModelIcon === GrokLogo}
+										<span style:color={brandColor}>
+											{#if isModelIconSvg}
+												<ModelIcon height={10} width={10} />
+											{:else}
+												<ModelIcon size={10} />
+											{/if}
+										</span>
+									{/if}
 										<span class="truncate">{model.displayName}</span>
 									</button>
 								{/each}

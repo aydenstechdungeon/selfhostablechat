@@ -16,7 +16,7 @@
 	let importReplaceModalOpen = $state(false);
 	let pendingImportFile: File | null = $state(null);
 	
-	let activeTab = $state<'general' | 'models' | 'api-keys' | 'appearance' | 'system-prompt' | 'data'>('general');
+	let activeTab = $state<'general' | 'models' | 'api-keys' | 'appearance' | 'system-prompt' | 'privacy' | 'data'>('general');
 	let systemPrompt = $derived($systemPromptStore);
 	let settings = $derived($settingsStore);
 	let uiState = $derived($uiStore);
@@ -423,6 +423,16 @@
 				</button>
 				<button
 					class="px-4 py-3 text-left rounded-lg transition-all"
+					style:background-color={activeTab === 'privacy' ? activeBg : 'transparent'}
+					style:color={activeTab === 'privacy' ? '#4299e1' : textSecondary}
+					onmouseenter={(e) => activeTab !== 'privacy' && (e.currentTarget.style.backgroundColor = hoverBg)}
+					onmouseleave={(e) => activeTab !== 'privacy' && (e.currentTarget.style.backgroundColor = 'transparent')}
+					onclick={() => activeTab = 'privacy'}
+				>
+					Privacy
+				</button>
+				<button
+					class="px-4 py-3 text-left rounded-lg transition-all"
 					style:background-color={activeTab === 'data' ? activeBg : 'transparent'}
 					style:color={activeTab === 'data' ? '#4299e1' : textSecondary}
 					onmouseenter={(e) => activeTab !== 'data' && (e.currentTarget.style.backgroundColor = hoverBg)}
@@ -658,6 +668,75 @@
 									<strong style:color={textPrimary}>Concise Mode</strong><br>
 									Short, direct responses
 								</button>
+							</div>
+						</div>
+					</div>
+				{:else if activeTab === 'privacy'}
+					<div class="tab-panel animate-fadeIn space-y-6">
+						<div class="setting-group">
+							<h3 class="text-lg font-semibold mb-4" style:color={textPrimary}>Privacy Settings</h3>
+							
+							<div class="space-y-6">
+								<!-- Privacy-Only Providers -->
+								<div class="p-4 rounded-lg border" style:border-color={border}>
+									<label class="flex items-start gap-3 cursor-pointer">
+										<input
+											type="checkbox"
+											class="w-5 h-5 rounded text-primary-500 focus:ring-primary-500 mt-0.5"
+											checked={settings.privacyOnlyProviders}
+											onchange={(e) => updateSetting('privacyOnlyProviders', e.currentTarget.checked)}
+										/>
+										<div>
+											<div class="text-sm font-semibold" style:color={textPrimary}>Use Privacy-Focused Providers Only</div>
+											<p class="text-sm mt-1" style:color={textSecondary}>
+												Only use AI providers with zero data retention policies (e.g., Anthropic, Google, DeepSeek).
+												This helps ensure your conversations are not stored or used for training by the model providers.
+											</p>
+										</div>
+									</label>
+								</div>
+								
+								<!-- Disable Chat Storing -->
+								<div class="p-4 rounded-lg border" style:border-color={border}>
+									<label class="flex items-start gap-3 cursor-pointer">
+										<input
+											type="checkbox"
+											class="w-5 h-5 rounded text-primary-500 focus:ring-primary-500 mt-0.5"
+											checked={settings.disableChatStoring}
+											onchange={(e) => updateSetting('disableChatStoring', e.currentTarget.checked)}
+										/>
+										<div>
+											<div class="text-sm font-semibold" style:color={textPrimary}>Disable Chat Storing</div>
+											<p class="text-sm mt-1" style:color={textSecondary}>
+												When enabled, chats will not be saved locally. All conversations will be ephemeral and disappear
+												when you close or refresh the page. This provides maximum privacy but means you cannot access
+												chat history.
+											</p>
+											{#if settings.disableChatStoring}
+												<p class="text-sm mt-2 font-medium" style:color={dangerColor}>
+													⚠️ Warning: Your existing chats will be preserved, but new chats will not be saved.
+												</p>
+											{/if}
+										</div>
+									</label>
+								</div>
+								
+								<!-- Privacy Notice -->
+								<div class="p-4 rounded-lg border" style:border-color={border} style:background-color={inputBg}>
+									<h4 class="text-sm font-semibold mb-2" style:color={textPrimary}>About Privacy-Focused Providers</h4>
+									<p class="text-sm" style:color={textSecondary}>
+										Privacy-focused providers typically offer zero data retention, meaning:
+									</p>
+									<ul class="text-sm mt-2 space-y-1" style:color={textSecondary}>
+										<li>• Your prompts and completions are not stored</li>
+										<li>• Your data is not used for model training</li>
+										<li>• Requests are processed in real-time and immediately discarded</li>
+									</ul>
+									<p class="text-sm mt-3" style:color={textSecondary}>
+										Note: This application still processes your requests through OpenRouter.
+										For complete privacy, review OpenRouter's privacy policy as well.
+									</p>
+								</div>
 							</div>
 						</div>
 					</div>

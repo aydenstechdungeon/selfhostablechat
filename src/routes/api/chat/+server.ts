@@ -10,12 +10,15 @@ import { checkRateLimit } from '$lib/server/ai/rate-limiter';
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_CONVERSATION_HISTORY = 100;
 const ALLOWED_MODELS = new Set([
-  'openai/gpt-oss-20b:free', 'openai/gpt-oss-20b', 'openai/gpt-oss-120b',
-  'openai/gpt-4o-mini', 'openai/gpt-5.1', 'openai/gpt-5.2', 'openai/gpt-5-mini',
+  'openai/gpt-oss-safeguard-20b:free', 'openai/gpt-oss-safeguard-20b',
+  'openai/gpt-4o-mini', 'openai/gpt-5.1', 'openai/gpt-5.2', 'openai/gpt-5.2-pro',
   'x-ai/grok-4.1-fast', 'google/gemini-2.5-flash-lite', 'google/gemini-3-flash-preview',
-  'anthropic/claude-4.5-sonnet', 'anthropic/claude-opus-4.5', 'bytedance-seed/seedream-4.5',
-  'google/gemini-3-pro-image-preview', 'google/gemini-2.5-flash-image', 'black-forest-labs/flux.2-pro',
-  'black-forest-labs/flux.2-flex', 'sourceful/riverflow-v2-standard-preview'
+  'anthropic/claude-sonnet-4.5', 'anthropic/claude-opus-4.5', 'anthropic/claude-haiku-4.5',
+  'google/gemini-3-pro-image-preview', 'google/gemini-2.5-flash-image',
+  'deepseek/deepseek-v3.2', 'meta-llama/llama-4-scout', 'meta-llama/llama-4-maverick',
+  'moonshotai/kimi-k2.5', 'minimax/minimax-m2.1', 'z-ai/glm-4.7',
+  'mistralai/mistral-large-2512', 'openai/gpt-4o-2024-11-20',
+  'qwen/qwen3-vl-235b-a22b-instruct', 'perplexity/sonar-pro-search'
 ]);
 
 // Sanitize user input to prevent prompt injection

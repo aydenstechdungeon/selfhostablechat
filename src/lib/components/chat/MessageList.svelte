@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { currentMessages, isStreaming as streamingState, streamingBuffer, multiModelStreamingBuffers, isMultiModelStreaming, chatStore } from '$lib/stores/chatStore';
 	import { settingsStore } from '$lib/stores/settingsStore';
+	import { streamingStore } from '$lib/stores/streamingStore';
 	import MessageBubble from './MessageBubble.svelte';
 	import { ArrowDown } from 'lucide-svelte';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type { Message } from '$lib/types';
 	
 	let messageContainer: HTMLDivElement;
@@ -22,26 +23,44 @@
 	let preservedScrollTop = $state(0);
 	let wasStreaming = $state(false);
 	
+	// Track if user is near bottom for new messages dismissal
+	let isNearBottom = $state(false);
+	let activeChatId = $derived($chatStore.activeChatId);
+	
 	// Map to store siblings for each message
 	let messageSiblings = $state(new Map<string, { siblings: Message[], currentIndex: number }>());
 	
 	// Debounced siblings loading to prevent excessive re-renders
 	let siblingsTimeout: ReturnType<typeof setTimeout> | null = null;
+	let isLoadingSiblings = $state(false);
+	// Track message IDs we've already loaded siblings for to avoid redundant work
+	let loadedSiblingsFor = new Set<string>();
 	
-	// Load siblings for visible messages
+	// Load siblings for visible messages - debounced and throttled
 	$effect(() => {
-		// Create a key from message IDs to detect any message change
-		const messageKey = messages.map(m => m.id).join(',');
+		const messageIds = messages.map(m => m.id);
+		const messageKey = messageIds.join(',');
 		
-		if (messages.length > 0) {
-			// Clear previous timeout to debounce
-			if (siblingsTimeout) {
-				clearTimeout(siblingsTimeout);
-			}
-			siblingsTimeout = setTimeout(() => {
-				loadSiblings();
-			}, 50);
+		if (messages.length === 0) {
+			messageSiblings = new Map();
+			loadedSiblingsFor.clear();
+			return;
 		}
+		
+		// Clear previous timeout to debounce
+		if (siblingsTimeout) {
+			clearTimeout(siblingsTimeout);
+		}
+		
+		// Only load siblings if we have new messages that we haven't loaded for yet
+		const hasNewMessages = messageIds.some(id => !loadedSiblingsFor.has(id));
+		if (!hasNewMessages && messageSiblings.size > 0) {
+			return; // Skip if we've already loaded for all current messages
+		}
+		
+		siblingsTimeout = setTimeout(() => {
+			loadSiblings();
+		}, 150); // Increased debounce to 150ms
 		
 		return () => {
 			if (siblingsTimeout) {
@@ -51,19 +70,62 @@
 	});
 	
 	async function loadSiblings() {
-		// Reload siblings for all visible messages to ensure freshness
-		const newSiblings = new Map<string, { siblings: Message[], currentIndex: number }>();
+		if (isLoadingSiblings) return;
+		isLoadingSiblings = true;
 		
-		for (const message of messages) {
-			const result = await chatStore.getMessageSiblings(message.id);
-			// Only store if there are multiple versions
-			if (result.siblings.length > 1) {
-				newSiblings.set(message.id, result);
+		try {
+			// Only process messages we haven't loaded siblings for yet
+			const messagesToProcess = messages.filter(m => !loadedSiblingsFor.has(m.id));
+			
+			if (messagesToProcess.length === 0 && messageSiblings.size > 0) {
+				return;
 			}
+			
+			// Create new map from existing to avoid full re-render
+			const newSiblings = new Map(messageSiblings);
+			
+			// Batch sibling loading - process in chunks to avoid blocking UI
+			const batchSize = 5;
+			for (let i = 0; i < messagesToProcess.length; i += batchSize) {
+				const batch = messagesToProcess.slice(i, i + batchSize);
+				
+				await Promise.all(batch.map(async (message) => {
+					try {
+						const result = await chatStore.getMessageSiblings(message.id);
+						// Only store if there are multiple versions
+						if (result.siblings.length > 1) {
+							newSiblings.set(message.id, result);
+						}
+						loadedSiblingsFor.add(message.id);
+					} catch (e) {
+						// Silently fail for individual messages
+						loadedSiblingsFor.add(message.id);
+					}
+				}));
+				
+				// Yield to UI between batches
+				if (i + batchSize < messagesToProcess.length) {
+					await tick();
+				}
+			}
+			
+			// Only update state if there are actual changes
+			if (newSiblings.size !== messageSiblings.size ||
+				Array.from(newSiblings.keys()).some(k => !messageSiblings.has(k))) {
+				messageSiblings = newSiblings;
+			}
+		} finally {
+			isLoadingSiblings = false;
 		}
-		
-		messageSiblings = newSiblings;
 	}
+	
+	// Clear loaded siblings cache when chat changes
+	$effect(() => {
+		if (activeChatId) {
+			loadedSiblingsFor.clear();
+			messageSiblings = new Map();
+		}
+	});
 	
 	function scrollToBottom() {
 		if (messageContainer) {
@@ -77,11 +139,14 @@
 	function handleScroll() {
 		if (!messageContainer) return;
 		const { scrollTop, scrollHeight, clientHeight } = messageContainer;
-		const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
-		showScrollButton = !isNearBottom;
+		const nearBottom = scrollHeight - scrollTop - clientHeight < 100;
+		
+		// Update reactive state
+		isNearBottom = nearBottom;
+		showScrollButton = !nearBottom;
 		
 		// Track if user has scrolled up (away from bottom)
-		userHasScrolledUp = !isNearBottom;
+		userHasScrolledUp = !nearBottom;
 		
 		// Preserve current scroll position for restoration after streaming
 		if (userHasScrolledUp) {
@@ -122,6 +187,15 @@
 		}
 		
 		lastMessageCount = currentMessageCount;
+	});
+	
+	// Effect to auto-dismiss green indicator when scrolled to bottom and generation completes
+	$effect(() => {
+		// Check if streaming just completed (transitioned from true to false)
+		if (wasStreaming && !isStreaming && isNearBottom && activeChatId) {
+			// User is at bottom and generation completed - dismiss the green indicator
+			streamingStore.clearNewMessages(activeChatId);
+		}
 	});
 </script>
 

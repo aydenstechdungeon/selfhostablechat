@@ -1,16 +1,28 @@
 <script lang="ts">
-	import { ChevronDown, Check, Sparkles } from 'lucide-svelte';
-	import { modelStore, AVAILABLE_MODELS } from '$lib/stores/modelStore';
+	import { ChevronDown, Check, Sparkles, Shield } from 'lucide-svelte';
+	import { modelStore, AVAILABLE_MODELS, isPrivacyFocusedModel } from '$lib/stores/modelStore';
+	import { settingsStore } from '$lib/stores/settingsStore';
 	import { uiStore } from '$lib/stores/uiStore';
 	import { chatStore } from '$lib/stores/chatStore';
-	import { 
-		SiOpenai, 
-		SiAnthropic, 
-		SiGoogle, 
+	import {
+		SiOpenai,
+		SiAnthropic,
+		SiGoogle,
 		SiMeta,
 		SiMistralai,
-		SiX
+		SiClaude,
+		SiGooglegemini,
+		SiX,
+		SiPerplexity
 	} from '@icons-pack/svelte-simple-icons';
+	import {
+		DeepSeekLogo,
+		PerplexityAILogo,
+		XAIGrokLogo,
+		KimiLogo,
+		QwenLogo,
+		GrokLogo
+	} from '@selemondev/svgl-svelte';
 	
 	let isOpen = $state(false);
 	let selectedBrand = $state<string>('recommended');
@@ -42,7 +54,35 @@
 		'google': SiGoogle,
 		'meta': SiMeta,
 		'mistral': SiMistralai,
-		'xai': SiX,
+		'xai': XAIGrokLogo,
+		'deepseek': DeepSeekLogo,
+		'perplexity': PerplexityAILogo,
+		'moonshot': KimiLogo,
+		'qwen': QwenLogo,
+		'minimax': null, // No icon available, uses fallback
+	};
+	
+	// Model-specific icon mapping (for actual model logos vs brand logos)
+	const modelIcons: Record<string, any> = {
+		// Claude models
+		'anthropic/claude-opus-4.5': SiClaude,
+		'anthropic/claude-sonnet-4.5': SiClaude,
+		'anthropic/claude-haiku-4.5': SiClaude,
+		// Gemini models
+		'google/gemini-2.5-flash-lite': SiGooglegemini,
+		'google/gemini-3-flash-preview': SiGooglegemini,
+		'google/gemini-3-pro-preview': SiGooglegemini,
+		'google/gemini-3-pro-image-preview': SiGooglegemini,
+		'google/gemini-2.5-flash-image': SiGooglegemini,
+		// Grok models
+		'x-ai/grok-4.1-fast': GrokLogo,
+		// Other models with specific icons
+		'perplexity/sonar-pro-search': PerplexityAILogo,
+		'qwen/qwen3-vl-235b-a22b-instruct': QwenLogo,
+		'moonshotai/kimi-k2': KimiLogo,
+		'moonshotai/kimi-k2.5': KimiLogo,
+		'deepseek/deepseek-v3.2': DeepSeekLogo,
+		'minimax/minimax-m2.1': null,
 	};
 	
 	// Display text and icon for the selector button
@@ -58,6 +98,15 @@
 		return 'Select Model';
 	});
 	
+	let currentModelId = $derived(() => {
+		if ($modelStore.autoMode || $modelStore.multiModelMode) {
+			return null;
+		} else if ($modelStore.selectedModels.length > 0) {
+			return $modelStore.selectedModels[0];
+		}
+		return null;
+	});
+	
 	let currentModelBrand = $derived(() => {
 		if ($modelStore.autoMode || $modelStore.multiModelMode) {
 			return null;
@@ -68,9 +117,27 @@
 		return null;
 	});
 	
-	// Get current brand and icon for display
+	// Get current brand and icon for display (prefer model-specific icon)
+	let displayModelId = $derived(currentModelId());
 	let displayBrand = $derived(currentModelBrand());
-	let DisplayBrandIcon = $derived(displayBrand ? brandIcons[displayBrand] : null);
+	let DisplayIcon = $derived(() => {
+		// Prefer model-specific icon if available
+		if (displayModelId && modelIcons[displayModelId]) {
+			return modelIcons[displayModelId];
+		}
+		// Fall back to brand icon
+		if (displayBrand && brandIcons[displayBrand]) {
+			return brandIcons[displayBrand];
+		}
+		return null;
+	});
+	let isSvgIcon = $derived(() => {
+		const icon = DisplayIcon();
+		if (!icon) return false;
+		// Check if it's an SVGL icon
+		return icon === DeepSeekLogo || icon === PerplexityAILogo || icon === XAIGrokLogo || 
+		       icon === KimiLogo || icon === QwenLogo || icon === GrokLogo;
+	});
 	
 	// Custom brand order: All, Recommended, Anthropic (3rd), others..., Google (5th), OpenAI (6th)
 	const BRAND_ORDER = ['all', 'recommended', 'image', 'anthropic', 'xai', 'google', 'openai', 'meta', 'mistral', 'moonshot', 'minimax'];
@@ -102,25 +169,38 @@
 		}))
 	];
 	
-	// Map AVAILABLE_MODELS to selector format
-	const models = AVAILABLE_MODELS.map(m => ({
-		id: m.id,
-		name: m.name,
-		brand: m.brand.toLowerCase(),
-		recommended: m.category === 'general' || m.category === 'advanced',
-		context: m.contextWindow >= 1000000 
-			? `${(m.contextWindow / 1000000).toFixed(1)}M` 
-			: `${(m.contextWindow / 1000).toFixed(0)}K`,
-		price: `$${(m.pricePer1M.input + m.pricePer1M.output).toFixed(2)}/1M`,
-		supportsImages: m.supportsImages,
-		supportsImageGeneration: m.supportsImageGeneration
-	}));
+	// Get privacy setting from store
+	let privacyOnlyProviders = $derived($settingsStore.privacyOnlyProviders);
+	
+	// Map AVAILABLE_MODELS to selector format with privacy filtering
+	let models = $derived(() => {
+		const allModels = AVAILABLE_MODELS.map(m => ({
+			id: m.id,
+			name: m.name,
+			brand: m.brand.toLowerCase(),
+			recommended: m.category === 'general' || m.category === 'advanced',
+			context: m.contextWindow >= 1000000
+				? `${(m.contextWindow / 1000000).toFixed(1)}M`
+				: `${(m.contextWindow / 1000).toFixed(0)}K`,
+			price: `$${(m.pricePer1M.input + m.pricePer1M.output).toFixed(2)}/1M`,
+			supportsImages: m.supportsImages,
+			supportsImageGeneration: m.supportsImageGeneration,
+			privacyFocused: isPrivacyFocusedModel(m.id)
+		}));
+		
+		// Filter by privacy setting if enabled
+		if (privacyOnlyProviders) {
+			return allModels.filter(m => m.privacyFocused);
+		}
+		return allModels;
+	});
 	
 	let filteredModels = $derived(() => {
-		if (selectedBrand === 'all') return models;
-		if (selectedBrand === 'recommended') return models.filter(m => m.recommended);
-		if (selectedBrand === 'image') return models.filter(m => m.supportsImageGeneration);
-		return models.filter(m => m.brand === selectedBrand);
+		const currentModels = models();
+		if (selectedBrand === 'all') return currentModels;
+		if (selectedBrand === 'recommended') return currentModels.filter(m => m.recommended);
+		if (selectedBrand === 'image') return currentModels.filter(m => m.supportsImageGeneration);
+		return currentModels.filter(m => m.brand === selectedBrand);
 	});
 	
 	function selectModel(modelId: string) {
@@ -186,10 +266,15 @@
 		aria-haspopup="listbox"
 		aria-expanded={isOpen}
 	>
-		{#if DisplayBrandIcon}
+		{#if DisplayIcon()}
+			{@const IconComponent = DisplayIcon()}
 			{@const iconColor = displayBrand === 'xai' && theme === 'dark' ? '#000000' : '#ffffff'}
-			<div class="w-5 h-5 rounded flex items-center justify-center {getBrandColor(displayBrand!)} flex-shrink-0 pointer-events-none">
-				<DisplayBrandIcon size={14} color={iconColor} />
+			<div class="w-5 h-5 rounded flex items-center justify-center {getBrandColor(displayBrand!)} flex-shrink-0 pointer-events-none overflow-hidden">
+				{#if isSvgIcon()}
+					<IconComponent height={14} width={14} />
+				{:else}
+					<IconComponent size={14} color={iconColor} />
+				{/if}
 			</div>
 		{:else if $modelStore.autoMode}
 			<div class="w-5 h-5 rounded bg-[#48bb78] flex items-center justify-center flex-shrink-0 pointer-events-none">
@@ -204,6 +289,13 @@
 		<div class="selector-dropdown absolute top-full mt-2 w-[420px] rounded-xl shadow-2xl overflow-hidden z-[9999] opacity-100 animate-dropdown-in" style:background-color={bgColor} style:border="1px solid {border}" style:left="50%" style:transform="translateX(-50%)">
 			<!-- Header with Multi-Model Toggle and Brand Tabs -->
 			<div style:border-bottom="1px solid {border}">
+				<!-- Privacy Mode Indicator -->
+				{#if privacyOnlyProviders}
+					<div class="px-3 py-1.5 flex items-center gap-2" style:background-color="rgba(72, 187, 120, 0.1)">
+						<Shield size={14} class="text-[#48bb78]" />
+						<span class="text-xs font-medium text-[#48bb78]">Privacy Mode: Only showing privacy-focused providers</span>
+					</div>
+				{/if}
 				<div class="flex items-center gap-1 px-3 py-2 overflow-x-auto" style="scrollbar-width: thin; scrollbar-color: {textSecondary} {bgSecondary};">
 					<!-- Multi-Model Toggle -->
 					<button
@@ -218,21 +310,26 @@
 					
 					<div class="w-px h-5 flex-shrink-0" style:background-color={border}></div>
 					
-					<!-- Brand Tabs -->
-					{#each brands as brand}
-						{@const BrandIcon = brandIcons[brand.id]}
-						<button
-							class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1"
-							style:background-color={selectedBrand === brand.id ? bgSecondary : 'transparent'}
-							style:color={selectedBrand === brand.id ? text : textSecondary}
-							onclick={() => selectedBrand = brand.id}
-						>
-							{#if BrandIcon}
+				<!-- Brand Tabs -->
+				{#each brands as brand}
+					{@const BrandIcon = brandIcons[brand.id]}
+					{@const isBrandSvgIcon = BrandIcon === DeepSeekLogo || BrandIcon === PerplexityAILogo || BrandIcon === XAIGrokLogo || BrandIcon === KimiLogo || BrandIcon === QwenLogo || BrandIcon === GrokLogo}
+					<button
+						class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1"
+						style:background-color={selectedBrand === brand.id ? bgSecondary : 'transparent'}
+						style:color={selectedBrand === brand.id ? text : textSecondary}
+						onclick={() => selectedBrand = brand.id}
+					>
+						{#if BrandIcon}
+							{#if isBrandSvgIcon}
+								<BrandIcon height={14} width={14} />
+							{:else}
 								<BrandIcon size={14} />
 							{/if}
-							{brand.name}
-						</button>
-					{/each}
+						{/if}
+						{brand.name}
+					</button>
+				{/each}
 				</div>
 			</div>
 			
@@ -259,45 +356,52 @@
 				</div>
 			{/if}
 			
-			<!-- Model List (Scrollable) -->
-			<div class="max-h-[320px] overflow-y-auto p-2 space-y-1" style="scrollbar-width: thin; scrollbar-color: {textSecondary} {bgSecondary};">
-				{#each filteredModels() as model}
-					{@const isSelected = $modelStore.multiModelMode ? selectedModels.has(model.id) : (!$modelStore.autoMode && $modelStore.selectedModels.includes(model.id))}
-					{@const ModelIcon = brandIcons[model.brand]}
-					{@const modelIconColor = model.brand === 'xai' && theme === 'dark' ? '#000000' : '#ffffff'}
-					<button
-						class="model-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border"
-						style:background-color={isSelected ? `${accentColor}15` : 'transparent'}
-						style:border-color={isSelected ? accentColor : 'transparent'}
-						onclick={() => selectModel(model.id)}
-					>
-						{#if $modelStore.multiModelMode}
-							<div class="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors" style:background-color={selectedModels.has(model.id) ? accentColor : 'transparent'} style:border-color={selectedModels.has(model.id) ? accentColor : border}>
-								{#if selectedModels.has(model.id)}
-									<Check size={12} class="text-white" />
-								{/if}
-							</div>
-						{/if}
-						<div class="w-8 h-8 rounded-lg {getBrandColor(model.brand)} flex items-center justify-center">
-							{#if ModelIcon}
-								<ModelIcon size={18} color={modelIconColor} />
-							{:else}
-								<span class="text-sm font-semibold" style:color={modelIconColor}>{model.name[0]}</span>
+		<!-- Model List (Scrollable) -->
+		<div class="max-h-[320px] overflow-y-auto p-2 space-y-1" style="scrollbar-width: thin; scrollbar-color: {textSecondary} {bgSecondary};">
+			{#each filteredModels() as model}
+				{@const isSelected = $modelStore.multiModelMode ? selectedModels.has(model.id) : (!$modelStore.autoMode && $modelStore.selectedModels.includes(model.id))}
+				{@const ModelSpecificIcon = modelIcons[model.id]}
+				{@const BrandIcon = brandIcons[model.brand]}
+				{@const DisplayModelIcon = ModelSpecificIcon || BrandIcon}
+				{@const modelIconColor = model.brand === 'xai' && theme === 'dark' ? '#000000' : '#ffffff'}
+				{@const isModelSvgIcon = DisplayModelIcon === DeepSeekLogo || DisplayModelIcon === PerplexityAILogo || DisplayModelIcon === XAIGrokLogo || DisplayModelIcon === KimiLogo || DisplayModelIcon === QwenLogo || DisplayModelIcon === GrokLogo}
+				<button
+					class="model-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border"
+					style:background-color={isSelected ? `${accentColor}15` : 'transparent'}
+					style:border-color={isSelected ? accentColor : 'transparent'}
+					onclick={() => selectModel(model.id)}
+				>
+					{#if $modelStore.multiModelMode}
+						<div class="w-5 h-5 rounded border-2 flex items-center justify-center transition-colors" style:background-color={selectedModels.has(model.id) ? accentColor : 'transparent'} style:border-color={selectedModels.has(model.id) ? accentColor : border}>
+							{#if selectedModels.has(model.id)}
+								<Check size={12} class="text-white" />
 							{/if}
 						</div>
-						<div class="flex-1 text-left min-w-0">
-							<div class="text-sm font-medium truncate" style:color={text}>{model.name}</div>
-							<div class="text-xs flex items-center gap-2" style:color={textSecondary}>
-								<span>{model.context}</span>
-								<span class="text-[#48bb78]">{model.price}</span>
-							</div>
-						</div>
-						{#if !$modelStore.multiModelMode && !autoMode && $modelStore.selectedModels.includes(model.id)}
-							<Check size={16} color={accentColor} />
+					{/if}
+					<div class="w-8 h-8 rounded-lg {getBrandColor(model.brand)} flex items-center justify-center overflow-hidden">
+						{#if DisplayModelIcon}
+							{#if isModelSvgIcon}
+								<DisplayModelIcon height={18} width={18} />
+							{:else}
+								<DisplayModelIcon size={18} color={modelIconColor} />
+							{/if}
+						{:else}
+							<span class="text-sm font-semibold" style:color={modelIconColor}>{model.name[0]}</span>
 						{/if}
-					</button>
-				{/each}
-			</div>
+					</div>
+					<div class="flex-1 text-left min-w-0">
+						<div class="text-sm font-medium truncate" style:color={text}>{model.name}</div>
+						<div class="text-xs flex items-center gap-2" style:color={textSecondary}>
+							<span>{model.context}</span>
+							<span class="text-[#48bb78]">{model.price}</span>
+						</div>
+					</div>
+					{#if !$modelStore.multiModelMode && !autoMode && $modelStore.selectedModels.includes(model.id)}
+						<Check size={16} color={accentColor} />
+					{/if}
+				</button>
+			{/each}
+		</div>
 			
 			<!-- Footer when multi-model is enabled -->
 			{#if $modelStore.multiModelMode && selectedModels.size > 0}

@@ -166,12 +166,14 @@
 	}
 </script>
 
-<div 
+<div
 	class="chat-page flex flex-col h-full overflow-hidden relative"
 	ondragenter={handleDragEnter}
 	ondragleave={handleDragLeave}
 	ondragover={handleDragOver}
 	ondrop={handleDrop}
+	role="region"
+	aria-label="Chat message area with file drop support"
 >
 	{#if !hasApiKey}
 		<div class="api-key-banner px-4 py-3 border-b" style:background-color={bgSecondary} style:border-color={borderColor}>

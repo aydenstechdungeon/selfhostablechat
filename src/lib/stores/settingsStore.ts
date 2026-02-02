@@ -15,7 +15,10 @@ const defaultSettings: UserSettings = {
   theme: 'auto', // Default to auto (system preference)
   fontSize: 14,
   compactMode: false,
-  codeSyntaxTheme: 'github-dark'
+  codeSyntaxTheme: 'github-dark',
+  // Privacy-focused settings (default to false for backwards compatibility)
+  privacyOnlyProviders: false,
+  disableChatStoring: false
 };
 
 const loadSettings = (): UserSettings => {

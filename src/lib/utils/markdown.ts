@@ -126,13 +126,28 @@ export function escapeHtml(text: string): string {
 
 // LRU cache for parsed markdown to avoid re-parsing
 const markdownCache = new Map<string, string>();
-const MAX_CACHE_SIZE = 100;
+const MAX_CACHE_SIZE = 200; // Increased for longer conversations
+
+// Use a simple hash for content keys to avoid memory issues with long content
+function hashContent(content: string): string {
+	// For short content, use directly; for long content, use length + first/last 50 chars
+	if (content.length < 200) return content;
+	return `${content.length}:${content.slice(0, 50)}:${content.slice(-50)}`;
+}
 
 function getCachedMarkdown(content: string): string | undefined {
-	return markdownCache.get(content);
+	const key = hashContent(content);
+	const result = markdownCache.get(key);
+	if (result !== undefined) {
+		// Move to end (most recently used)
+		markdownCache.delete(key);
+		markdownCache.set(key, result);
+	}
+	return result;
 }
 
 function setCachedMarkdown(content: string, html: string): void {
+	const key = hashContent(content);
 	if (markdownCache.size >= MAX_CACHE_SIZE) {
 		// Remove oldest entry (first in map)
 		const firstKey = markdownCache.keys().next().value;
@@ -140,11 +155,43 @@ function setCachedMarkdown(content: string, html: string): void {
 			markdownCache.delete(firstKey);
 		}
 	}
-	markdownCache.set(content, html);
+	markdownCache.set(key, html);
 }
 
-export function parseMarkdown(content: string): string {
+// Cache for streaming content - only cache complete or substantial content
+const streamingContentCache = new Set<string>();
+
+export function parseMarkdown(content: string, isStreaming: boolean = false): string {
 	if (!content) return '';
+	
+	// For streaming content, only cache if it's substantial or contains markdown structures
+	if (isStreaming) {
+		// Skip caching for very short streaming content (< 50 chars)
+		if (content.length < 50) {
+			try {
+				const rawHtml = marked.parse(content, { async: false }) as string;
+				return wrapTablesInContainers(rawHtml);
+			} catch (error) {
+				return escapeHtml(content);
+			}
+		}
+		
+		// Only cache if we've seen this content before (re-render) or it has markdown structures
+		const cacheKey = hashContent(content);
+		if (!streamingContentCache.has(cacheKey)) {
+			streamingContentCache.add(cacheKey);
+			// Check for markdown structures
+			const hasMarkdown = /[!\[\]\(\)#\*\-\`\|\\]/.test(content);
+			if (!hasMarkdown && content.length < 200) {
+				try {
+					const rawHtml = marked.parse(content, { async: false }) as string;
+					return wrapTablesInContainers(rawHtml);
+				} catch (error) {
+					return escapeHtml(content);
+				}
+			}
+		}
+	}
 	
 	// Check cache first
 	const cached = getCachedMarkdown(content);
@@ -165,6 +212,11 @@ export function parseMarkdown(content: string): string {
 		return escapeHtml(content);
 	}
 }
+
+// Clear streaming cache periodically to prevent memory leaks
+setInterval(() => {
+	streamingContentCache.clear();
+}, 60000); // Clear every minute
 
 // Clear cache when needed (e.g., memory pressure)
 export function clearMarkdownCache(): void {

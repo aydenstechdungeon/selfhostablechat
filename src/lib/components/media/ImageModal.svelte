@@ -202,11 +202,15 @@
 	
 	<!-- Conversion Panel -->
 	{#if showConversionPanel}
-		<div 
+		<div
 			class="absolute right-4 top-16 w-80 rounded-xl p-4 shadow-xl z-20"
 			style:background-color={panelBg}
 			style:border="1px solid {panelBorder}"
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => e.stopPropagation()}
+			role="dialog"
+			aria-label="Image conversion panel"
+			tabindex="-1"
 		>
 			<h3 class="text-sm font-semibold mb-3 flex items-center gap-2" style:color={panelText}>
 				<ImagePlus size={16} />
@@ -215,7 +219,7 @@
 			
 			<!-- Format Selection -->
 			<div class="mb-4">
-				<label class="text-xs opacity-70 mb-2 block" style:color={panelText}>Target Format</label>
+				<p class="text-xs opacity-70 mb-2 block" style:color={panelText}>Target Format</p>
 				<div class="grid grid-cols-2 gap-2">
 					{#each IMAGE_CONVERSION_FORMATS as format}
 						<button
@@ -239,11 +243,12 @@
 			<!-- Quality Slider (for lossy formats) -->
 			{#if selectedFormat === 'jpeg' || selectedFormat === 'webp'}
 				<div class="mb-4">
-					<label class="text-xs opacity-70 mb-2 block flex justify-between" style:color={panelText}>
+					<label for="quality-slider" class="text-xs opacity-70 mb-2 block flex justify-between" style:color={panelText}>
 						<span>Quality</span>
 						<span>{quality}%</span>
 					</label>
 					<input
+						id="quality-slider"
 						type="range"
 						min="1"
 						max="100"

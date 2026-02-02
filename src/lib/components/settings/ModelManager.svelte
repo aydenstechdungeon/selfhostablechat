@@ -16,8 +16,19 @@
 		SiGoogle, 
 		SiMeta,
 		SiMistralai,
-		SiX
+		SiClaude,
+		SiGooglegemini,
+		SiX,
+		SiPerplexity
 	} from '@icons-pack/svelte-simple-icons';
+	import {
+		DeepSeekLogo,
+		PerplexityAILogo,
+		XAIGrokLogo,
+		KimiLogo,
+		QwenLogo,
+		GrokLogo
+	} from '@selemondev/svgl-svelte';
 	import { 
 		Star, 
 		Trash2, 
@@ -149,7 +160,35 @@
 		'google': SiGoogle,
 		'meta': SiMeta,
 		'mistral': SiMistralai,
-		'xai': SiX,
+		'xai': XAIGrokLogo,
+		'deepseek': DeepSeekLogo,
+		'perplexity': PerplexityAILogo,
+		'moonshot': KimiLogo,
+		'qwen': QwenLogo,
+		'minimax': null, // No icon available, uses fallback
+	};
+	
+	// Model-specific icon mapping (for actual model logos)
+	const modelIcons: Record<string, any> = {
+		// Claude models
+		'anthropic/claude-opus-4.5': SiClaude,
+		'anthropic/claude-sonnet-4.5': SiClaude,
+		'anthropic/claude-haiku-4.5': SiClaude,
+		// Gemini models
+		'google/gemini-2.5-flash-lite': SiGooglegemini,
+		'google/gemini-3-flash-preview': SiGooglegemini,
+		'google/gemini-3-pro-preview': SiGooglegemini,
+		'google/gemini-2.5-flash-image': SiGooglegemini,
+		'google/gemini-3-pro-image-preview': SiGooglegemini,
+		// Grok models
+		'x-ai/grok-4.1-fast': GrokLogo,
+		// Other models with specific icons
+		'perplexity/sonar-pro-search': PerplexityAILogo,
+		'qwen/qwen3-vl-235b-a22b-instruct': QwenLogo,
+		'moonshotai/kimi-k2': KimiLogo,
+		'moonshotai/kimi-k2.5': KimiLogo,
+		'deepseek/deepseek-v3.2': DeepSeekLogo,
+		'minimax/minimax-m2.1': null,
 	};
 	
 	const brands = ['OpenAI', 'Anthropic', 'Google', 'Meta', 'Mistral', 'xAI', 'Moonshot', 'DeepSeek', 'MiniMax', 'Qwen', 'Perplexity', 'Black Forest Labs', 'Z.AI', 'Other'];
@@ -420,6 +459,9 @@
 			<div class="models-list space-y-2 max-h-[400px] overflow-y-auto" style="scrollbar-width: thin;">
 				{#each visibleModels() as model}
 					{@const BrandIcon = getBrandIcon(model.brand)}
+					{@const ModelSpecificIcon = modelIcons[model.id]}
+					{@const DisplayIcon = ModelSpecificIcon || BrandIcon}
+					{@const isSvgIcon = DisplayIcon === DeepSeekLogo || DisplayIcon === PerplexityAILogo || DisplayIcon === XAIGrokLogo || DisplayIcon === KimiLogo || DisplayIcon === QwenLogo || DisplayIcon === GrokLogo}
 					{@const isCustom = model.isCustom}
 					{@const isAutoSelectable = 'isAutoSelectable' in model ? model.isAutoSelectable : true}
 					
@@ -434,12 +476,16 @@
 							</div>
 						{/if}
 						
-						<!-- Brand Icon -->
-						<div class="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0"
+						<!-- Brand/Model Icon -->
+						<div class="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0 overflow-hidden"
 							style:background-color={getBrandColor(model.brand)}
 						>
-							{#if BrandIcon}
-								<BrandIcon size={20} />
+							{#if DisplayIcon}
+								{#if isSvgIcon}
+									<DisplayIcon height={20} width={20} />
+								{:else}
+									<DisplayIcon size={20} />
+								{/if}
 							{:else}
 								<span class="text-sm font-bold">{model.brand[0]}</span>
 							{/if}
@@ -558,17 +604,24 @@
 				<div class="models-list space-y-2 max-h-[300px] overflow-y-auto" style="scrollbar-width: thin;" transition:fade={{ duration: 200 }}>
 					{#each hiddenModelsList() as model}
 						{@const BrandIcon = getBrandIcon(model.brand)}
+						{@const ModelSpecificIcon = modelIcons[model.id]}
+						{@const DisplayIcon = ModelSpecificIcon || BrandIcon}
+						{@const isSvgIcon = DisplayIcon === DeepSeekLogo || DisplayIcon === PerplexityAILogo || DisplayIcon === XAIGrokLogo || DisplayIcon === KimiLogo || DisplayIcon === QwenLogo || DisplayIcon === GrokLogo}
 						
 						<div class="model-item flex items-center gap-3 p-3 rounded-lg border opacity-60"
 							style:border-color={border}
 							style:background-color={inputBg}
 						>
-							<!-- Brand Icon -->
-							<div class="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0 grayscale"
+							<!-- Brand/Model Icon -->
+							<div class="w-10 h-10 rounded-lg flex items-center justify-center text-white flex-shrink-0 grayscale overflow-hidden"
 								style:background-color={getBrandColor(model.brand)}
 							>
-								{#if BrandIcon}
-									<BrandIcon size={20} />
+								{#if DisplayIcon}
+									{#if isSvgIcon}
+										<DisplayIcon height={20} width={20} />
+									{:else}
+										<DisplayIcon size={20} />
+									{/if}
 								{:else}
 									<span class="text-sm font-bold">{model.brand[0]}</span>
 								{/if}

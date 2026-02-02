@@ -23,6 +23,7 @@ export interface CustomModel {
   isRecommended?: boolean;
   isAutoSelectable?: boolean;
   isCustom: true;
+  privacyFocused?: boolean;
 }
 
 const STORAGE_KEY = 'modelStore';
@@ -65,10 +66,38 @@ const getInitialState = (): ModelState => {
   };
 };
 
+// Privacy-focused providers with zero data retention policies
+export const PRIVACY_FOCUSED_PROVIDERS = [
+  'hyperbolic',
+  'inference.net',
+  'fireworks',
+  'baseten',
+  'modal',
+  'featherless',
+  'amazon',
+  'anthropic',
+  'google',
+  'deepseek',
+  'meta-llama',
+  'moonshotai',
+  'qwen',
+  'z-ai',
+  'x-ai',
+  'mistralai',
+  'minimax',
+  'perplexity'
+];
+
+// Check if a model is from a privacy-focused provider
+export function isPrivacyFocusedModel(modelId: string): boolean {
+  const provider = modelId.split('/')[0];
+  return PRIVACY_FOCUSED_PROVIDERS.some(p => provider.toLowerCase().includes(p.toLowerCase()));
+}
+
 // Valid OpenRouter models (as of Jan 2026)
 export const AVAILABLE_MODELS = [
   {
-    id: 'openai/gpt-oss-20b:free',
+    id: 'openai/gpt-oss-safeguard-20b:free',
     name: 'GPT OSS 20B Free',
     displayName: 'GPT OSS 20B Free',
     brand: 'OpenAI',
@@ -81,39 +110,15 @@ export const AVAILABLE_MODELS = [
     isAutoSelectable: true
   },
   {
-    id: 'openai/gpt-oss-120b:free',
-    name: 'GPT OSS 120B Free',
-    displayName: 'GPT OSS 120B Free',
-    brand: 'OpenAI',
-    category: 'general',
-    capabilities: ['general', 'fast'],
-    supportsImages: false,
-    contextWindow: 131072,
-    pricePer1M: { input: 0, output: 0 },
-    isRecommended: false,
-    isAutoSelectable: true
-  },
-  {
-    id: 'openai/gpt-oss-20b',
+    id: 'openai/gpt-oss-safeguard-20b',
     name: 'GPT OSS 20B',
     displayName: 'GPT OSS 20B',
     brand: 'OpenAI',
     category: 'general',
     capabilities: ['general', 'fast'],
     supportsImages: false,
-    contextWindow: 128000,
-    pricePer1M: { input: 0.10, output: 0.10 }
-  },
-  {
-    id: 'openai/gpt-oss-120b',
-    name: 'GPT OSS 120B',
-    displayName: 'GPT OSS 120B',
-    brand: 'OpenAI',
-    category: 'general',
-    capabilities: ['general', 'coding', 'complex'],
-    supportsImages: false,
-    contextWindow: 128000,
-    pricePer1M: { input: 0.50, output: 1.50 }
+    contextWindow: 131072,
+    pricePer1M: { input: 0.075, output: 0.30 }
   },
   {
     id: 'openai/gpt-4o-mini',
@@ -135,8 +140,8 @@ export const AVAILABLE_MODELS = [
     category: 'general',
     capabilities: ['general', 'fast'],
     supportsImages: false,
-    contextWindow: 128000,
-    pricePer1M: { input: 0.50, output: 1.50 }
+    contextWindow: 2000000,
+    pricePer1M: { input: 0.20, output: 0.50 }
   },
   {
     id: 'moonshotai/kimi-k2',
@@ -156,7 +161,7 @@ export const AVAILABLE_MODELS = [
     brand: 'Moonshot',
     category: 'general',
     capabilities: ['general', 'coding'],
-    supportsImages: false,
+    supportsImages: true,
     contextWindow: 262144,
     pricePer1M: { input: 0.50, output: 2.80 }
   },
@@ -179,8 +184,8 @@ export const AVAILABLE_MODELS = [
     category: 'general',
     capabilities: ['general', 'vision', 'coding'],
     supportsImages: true,
-    contextWindow: 256000,
-    pricePer1M: { input: 2.00, output: 8.00 }
+    contextWindow: 400000,
+    pricePer1M: { input: 1.25, output: 10.00 }
   },
   {
     id: 'openai/gpt-5.2',
@@ -190,19 +195,19 @@ export const AVAILABLE_MODELS = [
     category: 'general',
     capabilities: ['general', 'vision', 'coding', 'complex'],
     supportsImages: true,
-    contextWindow: 256000,
-    pricePer1M: { input: 5.00, output: 15.00 }
+    contextWindow: 400000,
+    pricePer1M: { input: 1.75, output: 14.00 }
   },
   {
-    id: 'openai/gpt-5-mini',
-    name: 'GPT-5 Mini',
-    displayName: 'GPT-5 Mini',
+    id: 'openai/gpt-5.2-pro',
+    name: 'GPT-5.2 Pro',
+    displayName: 'GPT-5.2 Pro',
     brand: 'OpenAI',
     category: 'general',
-    capabilities: ['general', 'vision', 'fast'],
+    capabilities: ['general', 'vision', 'coding', 'complex'],
     supportsImages: true,
-    contextWindow: 256000,
-    pricePer1M: { input: 0.50, output: 1.50 }
+    contextWindow: 400000,
+    pricePer1M: { input: 21.00, output: 168.00 }
   },
   {
     id: 'anthropic/claude-opus-4.5',
@@ -213,7 +218,7 @@ export const AVAILABLE_MODELS = [
     capabilities: ['general', 'vision', 'coding', 'writing', 'complex'],
     supportsImages: true,
     contextWindow: 200000,
-    pricePer1M: { input: 15.00, output: 25.00 }
+    pricePer1M: { input: 5.00, output: 25.00 }
   },
   {
     id: 'deepseek/deepseek-v3.2',
@@ -227,26 +232,26 @@ export const AVAILABLE_MODELS = [
     pricePer1M: { input: 0.25, output: 0.38 }
   },
   {
-    id: 'meta/llama-4-scout',
+    id: 'meta-llama/llama-4-scout',
     name: 'Llama 4 Scout',
     displayName: 'Llama 4 Scout',
     brand: 'Meta',
     category: 'general',
     capabilities: ['general', 'fast'],
     supportsImages: false,
-    contextWindow: 128000,
-    pricePer1M: { input: 0.20, output: 0.60 }
+    contextWindow: 327680,
+    pricePer1M: { input: 0.08, output: 0.30 }
   },
   {
-    id: 'meta/llama-4-maverick',
+    id: 'meta-llama/llama-4-maverick',
     name: 'Llama 4 Maverick',
     displayName: 'Llama 4 Maverick',
     brand: 'Meta',
     category: 'general',
     capabilities: ['general', 'coding'],
     supportsImages: false,
-    contextWindow: 128000,
-    pricePer1M: { input: 0.50, output: 1.50 }
+    contextWindow: 1048576,
+    pricePer1M: { input: 0.15, output: 0.60 }
   },
   {
     id: 'z-ai/glm-4.7',
@@ -256,7 +261,7 @@ export const AVAILABLE_MODELS = [
     category: 'general',
     capabilities: ['general', 'coding'],
     supportsImages: false,
-    contextWindow: 128000,
+    contextWindow: 202752,
     pricePer1M: { input: 0.40, output: 1.50 }
   },
   {
@@ -268,7 +273,7 @@ export const AVAILABLE_MODELS = [
     capabilities: ['general', 'fast'],
     supportsImages: true,
     contextWindow: 1000000,
-    pricePer1M: { input: 0.10, output: 0.20 }
+    pricePer1M: { input: 0.10, output: 0.40 }
   },
   {
     id: 'google/gemini-3-flash-preview',
@@ -279,7 +284,7 @@ export const AVAILABLE_MODELS = [
     capabilities: ['general', 'vision', 'fast'],
     supportsImages: true,
     contextWindow: 1000000,
-    pricePer1M: { input: 0.35, output: 0.70 }
+    pricePer1M: { input: 0.50, output: 3.00 }
   },
   {
     id: 'google/gemini-3-pro-preview',
@@ -290,29 +295,29 @@ export const AVAILABLE_MODELS = [
     capabilities: ['general', 'vision', 'coding', 'complex'],
     supportsImages: true,
     contextWindow: 2000000,
-    pricePer1M: { input: 1.25, output: 5.00 }
+    pricePer1M: { input: 2.00, output: 12.00 }
   },
   {
-    id: 'anthropic/claude-4.5-sonnet',
-    name: 'Claude 4.5 Sonnet',
-    displayName: 'Claude 4.5 Sonnet',
+    id: 'anthropic/claude-sonnet-4.5',
+    name: 'Claude Sonnet 4.5',
+    displayName: 'Claude Sonnet 4.5',
     brand: 'Anthropic',
     category: 'general',
     capabilities: ['general', 'vision', 'coding', 'writing'],
     supportsImages: true,
-    contextWindow: 200000,
+    contextWindow: 1000000,
     pricePer1M: { input: 3.00, output: 15.00 }
   },
   {
-    id: 'anthropic/claude-4.5-haiku',
-    name: 'Claude 4.5 Haiku',
-    displayName: 'Claude 4.5 Haiku',
+    id: 'anthropic/claude-haiku-4.5',
+    name: 'Claude Haiku 4.5',
+    displayName: 'Claude Haiku 4.5',
     brand: 'Anthropic',
     category: 'general',
     capabilities: ['general', 'fast', 'coding'],
     supportsImages: false,
     contextWindow: 200000,
-    pricePer1M: { input: 1, output: 5 }
+    pricePer1M: { input: 1.00, output: 5.00 }
   },
   {
     id: 'google/gemini-3-pro-image-preview',
@@ -324,7 +329,7 @@ export const AVAILABLE_MODELS = [
     supportsImages: true,
     supportsImageGeneration: true,
     contextWindow: 4096,
-    pricePer1M: { input: 0, output: 0 },
+    pricePer1M: { input: 2.00, output: 12.00 },
     imageConfig: {
       supportsAspectRatio: true,
       supportsImageSize: true
@@ -340,39 +345,15 @@ export const AVAILABLE_MODELS = [
     supportsImages: true,
     supportsImageGeneration: true,
     contextWindow: 1000000,
-    pricePer1M: { input: 0.35, output: 0.70 },
+    pricePer1M: { input: 0.30, output: 2.50 },
     imageConfig: {
       supportsAspectRatio: true,
       supportsImageSize: true
     }
   },
-  {
-    id: 'black-forest-labs/flux.2-pro',
-    name: 'FLUX 2 Pro',
-    displayName: 'FLUX 2 Pro',
-    brand: 'Black Forest Labs',
-    category: 'image',
-    capabilities: ['image-generation'],
-    supportsImages: false,
-    supportsImageGeneration: true,
-    contextWindow: 4096,
-    pricePer1M: { input: 0.005, output: 0.02 }
-  },
-  {
-    id: 'black-forest-labs/flux.2-flex',
-    name: 'FLUX 2 Flex',
-    displayName: 'FLUX 2 Flex',
-    brand: 'Black Forest Labs',
-    category: 'image',
-    capabilities: ['image-generation'],
-    supportsImages: false,
-    supportsImageGeneration: true,
-    contextWindow: 4096,
-    pricePer1M: { input: 0.003, output: 0.012 }
-  },
   // Additional models for manual selection
   {
-    id: 'openai/gpt-4o',
+    id: 'openai/gpt-4o-2024-11-20',
     name: 'GPT-4o',
     displayName: 'GPT-4o',
     brand: 'OpenAI',
@@ -383,37 +364,37 @@ export const AVAILABLE_MODELS = [
     pricePer1M: { input: 2.50, output: 10.00 }
   },
   {
-    id: 'mistralai/mistral-large',
-    name: 'Mistral Large 2',
-    displayName: 'Mistral Large 2',
+    id: 'mistralai/mistral-large-2512',
+    name: 'Mistral Large 3',
+    displayName: 'Mistral Large 3',
     brand: 'Mistral',
     category: 'general',
     capabilities: ['general', 'coding'],
     supportsImages: false,
-    contextWindow: 128000,
-    pricePer1M: { input: 2.00, output: 6.00 }
+    contextWindow: 262144,
+    pricePer1M: { input: 0.50, output: 1.50 }
   },
   {
-    id: 'qwen/qwen3-235b-a22b-2507',
-    name: 'Qwen3 235B',
-    displayName: 'Qwen3 235B',
+    id: 'qwen/qwen3-vl-235b-a22b-instruct',
+    name: 'Qwen3 VL 235B',
+    displayName: 'Qwen3 VL 235B',
     brand: 'Qwen',
     category: 'general',
     capabilities: ['general', 'coding', 'math'],
-    supportsImages: false,
+    supportsImages: true,
     contextWindow: 262144,
-    pricePer1M: { input: 0.071, output: 0.463 }
+    pricePer1M: { input: 0.20, output: 1.20 }
   },
   {
-    id: 'perplexity/sonar-reasoning-pro',
-    name: 'Sonar Reasoning Pro',
-    displayName: 'Sonar Reasoning Pro',
+    id: 'perplexity/sonar-pro-search',
+    name: 'Sonar Pro Search',
+    displayName: 'Sonar Pro Search',
     brand: 'Perplexity',
     category: 'reasoning',
     capabilities: ['reasoning', 'search'],
     supportsImages: false,
-    contextWindow: 128000,
-    pricePer1M: { input: 1.00, output: 5.00 }
+    contextWindow: 200000,
+    pricePer1M: { input: 3.00, output: 15.00 }
   }
 ];
 

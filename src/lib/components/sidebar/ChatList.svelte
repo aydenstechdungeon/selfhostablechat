@@ -18,9 +18,18 @@
   let allChats: StoredChat[] = $state([]);
   let isLoading = $state(true);
   let filters = $derived($filterStore);
+  let filteredChats: StoredChat[] = $state([]);
+  let isFiltering = $state(false);
   
-  // Filtered and sorted chats - must be declared before hasMore
-  let filteredChats = $derived(filterAndSortChats(allChats, filters));
+  // Async filtering effect
+  $effect(() => {
+    const doFilter = async () => {
+      isFiltering = true;
+      filteredChats = await filterAndSortChats(allChats, filters);
+      isFiltering = false;
+    };
+    doFilter();
+  });
   
   // Pagination state
   const CHATS_PER_PAGE = 20;

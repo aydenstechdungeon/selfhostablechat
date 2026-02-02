@@ -283,7 +283,7 @@
 						: isImageGenModel 
 							? "Describe the image you want to generate..." 
 							: isStreamingState
-								? "Generation in progress... Type your next message"
+								? "Generation in progress in this chat..."
 								: "Type your message or drop files here..."}
 					rows="1"
 					bind:value={message}
