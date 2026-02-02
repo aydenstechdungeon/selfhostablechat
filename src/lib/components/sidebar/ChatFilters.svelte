@@ -12,6 +12,7 @@
 		SiClaude,
 		SiGooglegemini
 	} from '@icons-pack/svelte-simple-icons';
+	import MiniMaxLogo from '$lib/components/icons/MiniMaxLogo.svelte';
 	import { 
 		DeepSeekLogo, 
 		PerplexityAILogo, 
@@ -37,6 +38,7 @@
 		'Perplexity': PerplexityAILogo,
 		'Moonshot': KimiLogo,
 		'Qwen': QwenLogo,
+		'MiniMax': MiniMaxLogo,
 	};
 	
 	// Model-specific icon mapping (for actual model logos)
@@ -53,6 +55,8 @@
 		'google/gemini-3-pro-image-preview': SiGooglegemini,
 		// Grok models use Grok icon
 		'x-ai/grok-4.1-fast': GrokLogo,
+		// MiniMax models
+		'minimax/minimax-m2.1': MiniMaxLogo,
 	};
 	
 	function getBrandColor(brand: string) {
@@ -322,7 +326,7 @@
 								{#if BrandIcon}
 									{@const iconColor = brand.toLowerCase() === 'xai' && theme === 'light' ? '#ffffff' : '#000000'}
 									{@const bgColor = brand.toLowerCase() === 'xai' ? (theme === 'light' ? '#000000' : '#ffffff') : brandColor}
-									{@const isSvgBrandIcon = BrandIcon === DeepSeekLogo || BrandIcon === PerplexityAILogo || BrandIcon === XAIGrokLogo || BrandIcon === KimiLogo || BrandIcon === QwenLogo || BrandIcon === GrokLogo}
+									{@const isSvgBrandIcon = BrandIcon === DeepSeekLogo || BrandIcon === PerplexityAILogo || BrandIcon === XAIGrokLogo || BrandIcon === KimiLogo || BrandIcon === QwenLogo || BrandIcon === GrokLogo || BrandIcon === MiniMaxLogo}
 									<div class="w-4 h-4 rounded flex items-center justify-center overflow-hidden" style:background-color={bgColor}>
 										{#if isSvgBrandIcon}
 											<BrandIcon height={10} width={10} />

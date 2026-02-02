@@ -21,6 +21,7 @@
 		SiX,
 		SiPerplexity
 	} from '@icons-pack/svelte-simple-icons';
+	import MiniMaxLogo from '$lib/components/icons/MiniMaxLogo.svelte';
 	import {
 		DeepSeekLogo,
 		PerplexityAILogo,
@@ -165,7 +166,7 @@
 		'perplexity': PerplexityAILogo,
 		'moonshot': KimiLogo,
 		'qwen': QwenLogo,
-		'minimax': null, // No icon available, uses fallback
+		'minimax': MiniMaxLogo,
 	};
 	
 	// Model-specific icon mapping (for actual model logos)
@@ -188,7 +189,7 @@
 		'moonshotai/kimi-k2': KimiLogo,
 		'moonshotai/kimi-k2.5': KimiLogo,
 		'deepseek/deepseek-v3.2': DeepSeekLogo,
-		'minimax/minimax-m2.1': null,
+		'minimax/minimax-m2.1': MiniMaxLogo,
 	};
 	
 	const brands = ['OpenAI', 'Anthropic', 'Google', 'Meta', 'Mistral', 'xAI', 'Moonshot', 'DeepSeek', 'MiniMax', 'Qwen', 'Perplexity', 'Black Forest Labs', 'Z.AI', 'Other'];
@@ -461,7 +462,7 @@
 					{@const BrandIcon = getBrandIcon(model.brand)}
 					{@const ModelSpecificIcon = modelIcons[model.id]}
 					{@const DisplayIcon = ModelSpecificIcon || BrandIcon}
-					{@const isSvgIcon = DisplayIcon === DeepSeekLogo || DisplayIcon === PerplexityAILogo || DisplayIcon === XAIGrokLogo || DisplayIcon === KimiLogo || DisplayIcon === QwenLogo || DisplayIcon === GrokLogo}
+					{@const isSvgIcon = DisplayIcon === DeepSeekLogo || DisplayIcon === PerplexityAILogo || DisplayIcon === XAIGrokLogo || DisplayIcon === KimiLogo || DisplayIcon === QwenLogo || DisplayIcon === GrokLogo || DisplayIcon === MiniMaxLogo}
 					{@const isCustom = model.isCustom}
 					{@const isAutoSelectable = 'isAutoSelectable' in model ? model.isAutoSelectable : true}
 					
@@ -606,7 +607,7 @@
 						{@const BrandIcon = getBrandIcon(model.brand)}
 						{@const ModelSpecificIcon = modelIcons[model.id]}
 						{@const DisplayIcon = ModelSpecificIcon || BrandIcon}
-						{@const isSvgIcon = DisplayIcon === DeepSeekLogo || DisplayIcon === PerplexityAILogo || DisplayIcon === XAIGrokLogo || DisplayIcon === KimiLogo || DisplayIcon === QwenLogo || DisplayIcon === GrokLogo}
+						{@const isSvgIcon = DisplayIcon === DeepSeekLogo || DisplayIcon === PerplexityAILogo || DisplayIcon === XAIGrokLogo || DisplayIcon === KimiLogo || DisplayIcon === QwenLogo || DisplayIcon === GrokLogo || DisplayIcon === MiniMaxLogo}
 						
 						<div class="model-item flex items-center gap-3 p-3 rounded-lg border opacity-60"
 							style:border-color={border}

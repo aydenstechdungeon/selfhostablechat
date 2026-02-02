@@ -15,6 +15,7 @@
 		SiX,
 		SiPerplexity
 	} from '@icons-pack/svelte-simple-icons';
+	import MiniMaxLogo from '$lib/components/icons/MiniMaxLogo.svelte';
 	import {
 		DeepSeekLogo,
 		PerplexityAILogo,
@@ -59,7 +60,7 @@
 		'perplexity': PerplexityAILogo,
 		'moonshot': KimiLogo,
 		'qwen': QwenLogo,
-		'minimax': null, // No icon available, uses fallback
+		'minimax': MiniMaxLogo,
 	};
 	
 	// Model-specific icon mapping (for actual model logos vs brand logos)
@@ -82,7 +83,7 @@
 		'moonshotai/kimi-k2': KimiLogo,
 		'moonshotai/kimi-k2.5': KimiLogo,
 		'deepseek/deepseek-v3.2': DeepSeekLogo,
-		'minimax/minimax-m2.1': null,
+		'minimax/minimax-m2.1': MiniMaxLogo,
 	};
 	
 	// Display text and icon for the selector button
@@ -134,9 +135,9 @@
 	let isSvgIcon = $derived(() => {
 		const icon = DisplayIcon();
 		if (!icon) return false;
-		// Check if it's an SVGL icon
+		// Check if it's an SVGL icon or custom logo component
 		return icon === DeepSeekLogo || icon === PerplexityAILogo || icon === XAIGrokLogo || 
-		       icon === KimiLogo || icon === QwenLogo || icon === GrokLogo;
+		       icon === KimiLogo || icon === QwenLogo || icon === GrokLogo || icon === MiniMaxLogo;
 	});
 	
 	// Custom brand order: All, Recommended, Anthropic (3rd), others..., Google (5th), OpenAI (6th)
@@ -313,7 +314,7 @@
 				<!-- Brand Tabs -->
 				{#each brands as brand}
 					{@const BrandIcon = brandIcons[brand.id]}
-					{@const isBrandSvgIcon = BrandIcon === DeepSeekLogo || BrandIcon === PerplexityAILogo || BrandIcon === XAIGrokLogo || BrandIcon === KimiLogo || BrandIcon === QwenLogo || BrandIcon === GrokLogo}
+					{@const isBrandSvgIcon = BrandIcon === DeepSeekLogo || BrandIcon === PerplexityAILogo || BrandIcon === XAIGrokLogo || BrandIcon === KimiLogo || BrandIcon === QwenLogo || BrandIcon === GrokLogo || BrandIcon === MiniMaxLogo}
 					<button
 						class="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap flex items-center gap-1"
 						style:background-color={selectedBrand === brand.id ? bgSecondary : 'transparent'}
@@ -364,7 +365,7 @@
 				{@const BrandIcon = brandIcons[model.brand]}
 				{@const DisplayModelIcon = ModelSpecificIcon || BrandIcon}
 				{@const modelIconColor = model.brand === 'xai' && theme === 'dark' ? '#000000' : '#ffffff'}
-				{@const isModelSvgIcon = DisplayModelIcon === DeepSeekLogo || DisplayModelIcon === PerplexityAILogo || DisplayModelIcon === XAIGrokLogo || DisplayModelIcon === KimiLogo || DisplayModelIcon === QwenLogo || DisplayModelIcon === GrokLogo}
+				{@const isModelSvgIcon = DisplayModelIcon === DeepSeekLogo || DisplayModelIcon === PerplexityAILogo || DisplayModelIcon === XAIGrokLogo || DisplayModelIcon === KimiLogo || DisplayModelIcon === QwenLogo || DisplayModelIcon === GrokLogo || DisplayModelIcon === MiniMaxLogo}
 				<button
 					class="model-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors border"
 					style:background-color={isSelected ? `${accentColor}15` : 'transparent'}
