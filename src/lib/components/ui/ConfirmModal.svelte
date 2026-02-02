@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { uiStore } from '$lib/stores/uiStore';
+	import { ui } from '$lib/stores/ui.svelte';
+	import { onClickOutside, useKeyboardShortcut } from '$lib/utils/runed-helpers.svelte';
 	import { AlertTriangle, Trash2, Upload, X } from 'lucide-svelte';
 	
 	interface Props {
@@ -24,7 +25,27 @@
 		onCancel 
 	}: Props = $props();
 	
-	let theme = $derived($uiStore.theme);
+	let modalContent = $state<HTMLElement | null>(null);
+	
+	// Use Runed's onClickOutside for backdrop click
+	onClickOutside(
+		() => modalContent,
+		() => {
+			if (isOpen) onCancel();
+		}
+	);
+	
+	// Use Runed's keyboard shortcut hook
+	useKeyboardShortcut('Escape', () => {
+		if (isOpen) onCancel();
+	});
+	
+	useKeyboardShortcut('Enter', () => {
+		if (isOpen) onConfirm();
+	}, { ctrl: true });
+	
+	// Use the new UI store from Runed
+	let theme = $derived(ui.current.theme);
 	let textPrimary = $derived(theme === 'light' ? '#1f2937' : '#e2e8f0');
 	let textSecondary = $derived(theme === 'light' ? '#6b7280' : '#a0aec0');
 	let bgColor = $derived(theme === 'light' ? '#ffffff' : '#1a1f2e');
@@ -36,21 +57,6 @@
 		warning: { bg: '#f97316', hover: '#ea580c', icon: '#f97316' },
 		info: { bg: '#3b82f6', hover: '#2563eb', icon: '#3b82f6' }
 	};
-	
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			onCancel();
-		}
-		if (event.key === 'Enter' && event.ctrlKey) {
-			onConfirm();
-		}
-	}
-	
-	function handleBackdropClick(event: MouseEvent) {
-		if (event.target === event.currentTarget) {
-			onCancel();
-		}
-	}
 </script>
 
 {#if isOpen}
@@ -59,16 +65,15 @@
 	<div 
 		class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4"
 		style:background-color={overlayBg}
-		onclick={handleBackdropClick}
 	>
 		<div 
+			bind:this={modalContent}
 			class="modal-content w-full max-w-md rounded-xl border shadow-2xl animate-scale-in"
 			style:background-color={bgColor}
 			style:border-color={borderColor}
 			role="dialog"
 			aria-modal="true"
 			aria-labelledby="modal-title"
-			onkeydown={handleKeydown}
 			tabindex="-1"
 		>
 			<!-- Header -->

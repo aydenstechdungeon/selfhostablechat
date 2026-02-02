@@ -32,6 +32,14 @@
 			streamingStore.setActiveChat(chatId);
 		}
 	});
+
+	// Ensure streaming state is synced when mounting a chat that's already generating
+	// This fixes the issue where stop button doesn't show initially
+	$effect(() => {
+		if (chatId && streamingStore.isChatStreaming(chatId)) {
+			streamingStore.setActiveChat(chatId);
+		}
+	});
 	
 	async function loadChat(id: string) {
 		// Check if chat exists in IndexedDB

@@ -895,7 +895,12 @@ const createChatStore = () => {
       }
     },
 
-    async sendMessage(content: string, attachments: any[] = [], isNewChat: boolean = false) {
+    async sendMessage(
+      content: string,
+      attachments: any[] = [],
+      isNewChat: boolean = false,
+      onChatCreated?: (chatId: string) => void
+    ): Promise<string | undefined> {
       let state: ChatState;
       const unsubscribe = subscribe(s => { state = s; });
       unsubscribe();
@@ -920,11 +925,16 @@ const createChatStore = () => {
         const title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
         await this.createChat(chatId, title);
         update(s => ({ ...s, activeChatId: chatId }));
-        
+
+        // Notify component immediately that chat is created so it can track the chatId
+        if (onChatCreated) {
+          onChatCreated(chatId);
+        }
+
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('chat-updated'));
         }
-        
+
         if (needsNavigation) {
           replaceState(`/chat/${chatId}`, {});
         }
@@ -1360,6 +1370,7 @@ const createChatStore = () => {
         }));
         streamingStore.stopStreaming(chatId);
       }
+      return chatId;
     },
 
     async stopGeneration() {

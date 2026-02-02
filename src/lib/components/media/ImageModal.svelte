@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { X, ZoomIn, ZoomOut, Download, ImagePlus, RefreshCw, Check, AlertCircle } from 'lucide-svelte';
-	import { uiStore } from '$lib/stores/uiStore';
+	import { X, ZoomIn, ZoomOut, Download, ImagePlus, RefreshCw } from 'lucide-svelte';
+	import { ui } from '$lib/stores/ui.svelte';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { convertImage, detectImageFormat, formatImageSize, getDataUrlSize, type ImageFormat } from '$lib/utils/imageConversion';
 	import { IMAGE_CONVERSION_FORMATS } from '$lib/types';
+	import { onClickOutside, useKeyboardShortcut } from '$lib/utils/runed-helpers.svelte';
 	
 	interface Props {
 		imageUrl: string;
@@ -15,7 +16,7 @@
 	
 	let scale = $state(1);
 	let isLoading = $state(true);
-	let theme = $derived($uiStore.theme);
+	let theme = $derived(ui.current.theme);
 	
 	// Conversion state
 	let showConversionPanel = $state(false);
@@ -25,6 +26,8 @@
 	let convertedUrl = $state<string | null>(null);
 	let originalSize = $state(0);
 	let convertedSize = $state(0);
+	let modalContent = $state<HTMLElement | null>(null);
+	let conversionPanel = $state<HTMLElement | null>(null);
 	
 	let bgColor = $derived(theme === 'light' ? 'rgba(0, 0, 0, 0.9)' : 'rgba(0, 0, 0, 0.95)');
 	let panelBg = $derived(theme === 'light' ? '#ffffff' : '#1a1f2e');
@@ -120,32 +123,31 @@
 		}
 	}
 	
-	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			onClose();
-		} else if (e.key === '+' || e.key === '=') {
-			zoomIn();
-		} else if (e.key === '-') {
-			zoomOut();
-		} else if (e.key === '0') {
-			resetZoom();
+	// Use Runed's onClickOutside for backdrop click - only when conversion panel is closed
+	onClickOutside(
+		() => modalContent,
+		() => {
+			if (!showConversionPanel) {
+				onClose();
+			}
 		}
-	}
+	);
 	
-	function handleBackdropClick(e: MouseEvent) {
-		if (e.target === e.currentTarget) {
-			onClose();
-		}
-	}
+	// Keyboard shortcuts using Runed
+	useKeyboardShortcut('Escape', () => {
+		onClose();
+	});
+	
+	useKeyboardShortcut('+', zoomIn);
+	useKeyboardShortcut('=', zoomIn);
+	useKeyboardShortcut('-', zoomOut);
+	useKeyboardShortcut('0', resetZoom);
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
 <div 
+	bind:this={modalContent}
 	class="image-modal fixed inset-0 z-[9999] flex items-center justify-center"
 	style:background-color={bgColor}
-	onclick={handleBackdropClick}
-	onkeydown={handleKeydown}
 	role="dialog"
 	aria-modal="true"
 	aria-label="Image viewer"
@@ -203,6 +205,7 @@
 	<!-- Conversion Panel -->
 	{#if showConversionPanel}
 		<div
+			bind:this={conversionPanel}
 			class="absolute right-4 top-16 w-80 rounded-xl p-4 shadow-xl z-20"
 			style:background-color={panelBg}
 			style:border="1px solid {panelBorder}"

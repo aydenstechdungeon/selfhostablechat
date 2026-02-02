@@ -19,24 +19,33 @@
 	
 	let message = $state('');
 	let isSubmitting = $state(false);
+	let submittingChatId = $state<string | undefined>(undefined);
+	let isCreatingNewChat = $state(false);
 	let theme = $derived($uiStore.theme);
 	let attachedFiles = $state<Array<{ type: 'image' | 'video' | 'document' | 'audio' | 'file'; url: string; name: string; mimeType: string; size: number }>>([]);
 	let fileInput: HTMLInputElement | undefined = $state(undefined);
 	
-	// Get current chat ID from page params only
-	// Don't use activeChatId from store to avoid conflicts with background generating chats
-	// When on /chat/new, currentChatId should be undefined (no chat yet)
-	let currentChatId = $derived($page.params.id);
+	// Get current chat ID from page params, submitting state, or chat store
+	// Use submittingChatId only when actively creating a new chat from /chat/new
+	// This prevents flicker when isSubmitting becomes false before URL updates
+	// and ensures we don't show old submittingChatId when navigating back to /chat/new
+	let currentChatId = $derived($page.params.id || (isCreatingNewChat && isSubmitting ? submittingChatId : undefined) || undefined);
 	
-	// Use conversation-level streaming state instead of global lock
-	// This allows inputs in other chats to remain functional during generation
-	// For new chats (/chat/new), always allow input - no global lock
-	// For existing chats, only lock if THIS specific chat is generating
-	let isStreamingState = $derived(
-		currentChatId
-			? ($streamingStore.streamingChats.get(currentChatId)?.isStreaming || false)
-			: false
-	);
+	// Reactive streaming state that properly updates when the store changes
+	// Use a separate state variable that gets updated via an effect to ensure reactivity
+	let isStreamingState = $state(false);
+	
+	// Effect to sync streaming state from store - this ensures the UI updates immediately
+	// when streaming starts/stops, fixing the stop button visibility issue
+	$effect(() => {
+		if (currentChatId) {
+			// Check both the Map and also derive from store to ensure reactivity
+			const chatState = $streamingStore.streamingChats.get(currentChatId);
+			isStreamingState = chatState?.isStreaming || false;
+		} else {
+			isStreamingState = false;
+		}
+	});
 	
 	// Image modal state
 	let selectedImageUrl = $state<string | null>(null);
@@ -49,6 +58,39 @@
 			if (files.length > 0) {
 				processFiles(files);
 			}
+		}
+	});
+	
+	// Clear isCreatingNewChat and submittingChatId once URL updates to the new chat
+	$effect(() => {
+		if (isCreatingNewChat && submittingChatId && $page.params.id === submittingChatId) {
+			isCreatingNewChat = false;
+			submittingChatId = undefined;
+		}
+	});
+
+	// Clear flags when navigating away to a different chat or to /chat/new
+	// This ensures the send button doesn't stay disabled when switching chats
+	$effect(() => {
+		const onChatNew = $page.url.pathname === '/chat/new';
+		const onDifferentChat = $page.params.id && $page.params.id !== submittingChatId;
+
+		if ((onChatNew || onDifferentChat)) {
+			// Always reset these flags when navigating to prevent stuck state
+			isCreatingNewChat = false;
+			submittingChatId = undefined;
+			// CRITICAL: Also reset isSubmitting to prevent permanently disabled send button
+			isSubmitting = false;
+		}
+	});
+
+	// Explicitly clear all generation flags when landing on /chat/new
+	// This prevents the stop button from showing and ensures send button is enabled
+	$effect(() => {
+		if ($page.url.pathname === '/chat/new') {
+			isCreatingNewChat = false;
+			submittingChatId = undefined;
+			isSubmitting = false;
 		}
 	});
 	
@@ -79,17 +121,37 @@
 	
 	async function handleSubmit() {
 		if ((!message.trim() && attachedFiles.length === 0) || isSubmitting) return;
-		
+
 		// Allow sending messages even during streaming - each chat has independent state
 		// The chatStore handles the per-chat streaming state management
 		isSubmitting = true;
+
+		// Mark that we're creating a new chat (only applies when starting from /chat/new)
+		// This flag ensures we use submittingChatId only during the creation transition
+		if (isNewChat) {
+			isCreatingNewChat = true;
+		}
+
 		const userMessage = message.trim();
 		message = '';
 		const files = [...attachedFiles];
 		attachedFiles = [];
-		
+
 		try {
-			await chatStore.sendMessage(userMessage, files, isNewChat);
+			const chatId = await chatStore.sendMessage(
+				userMessage,
+				files,
+				isNewChat,
+				// Callback fired immediately when chat is created (for new chats)
+				// This ensures submittingChatId is set before streaming starts
+				(createdChatId) => {
+					submittingChatId = createdChatId;
+				}
+			);
+			// Fallback: if callback wasn't triggered (existing chat), set it here
+			if (chatId && !submittingChatId) {
+				submittingChatId = chatId;
+			}
 		} finally {
 			isSubmitting = false;
 		}
