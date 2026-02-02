@@ -10,7 +10,7 @@ import { checkRateLimit } from '$lib/server/ai/rate-limiter';
 const MAX_MESSAGE_LENGTH = 10000;
 const MAX_CONVERSATION_HISTORY = 100;
 const ALLOWED_MODELS = new Set([
-  'openai/gpt-oss-safeguard-20b:free', 'openai/gpt-oss-safeguard-20b',
+  'openai/gpt-oss-20b:free', 'openai/gpt-oss-20b',
   'openai/gpt-4o-mini', 'openai/gpt-5.1', 'openai/gpt-5.2', 'openai/gpt-5.2-pro',
   'x-ai/grok-4.1-fast', 'google/gemini-2.5-flash-lite', 'google/gemini-3-flash-preview',
   'anthropic/claude-sonnet-4.5', 'anthropic/claude-opus-4.5', 'anthropic/claude-haiku-4.5',
@@ -226,7 +226,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
       apiKey, 
       conversationHistory = [], 
       systemPrompt,
-      imageOptions
+      imageOptions,
+      webSearch
     } = body;
 
     if (!apiKey) {
@@ -308,7 +309,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
         // Process the stream - title will be yielded after streaming completes
         // but both run in parallel
-        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions, tools)) {
+        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions, tools, webSearch)) {
           yield chunk;
         }
 
@@ -353,7 +354,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         );
         
         // Process the stream
-        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools)) {
+        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools, webSearch)) {
           yield chunk as StreamChunk;
         }
         

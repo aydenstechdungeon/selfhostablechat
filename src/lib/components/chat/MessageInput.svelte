@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { Send, X, Paperclip, Square, Sparkles, FileText, Music, Film, File as FileIcon } from 'lucide-svelte';
-	import { chatStore } from '$lib/stores/chatStore';
-	import { streamingStore } from '$lib/stores/streamingStore';
-	import { uiStore } from '$lib/stores/uiStore';
-	import { modelStore, isImageGenerationModel } from '$lib/stores/modelStore';
-	import { toastStore } from '$lib/stores/toastStore';
-	import { IMAGE_MODELS, getFileTypeCategory, ALL_SUPPORTED_TYPES, MAX_FILE_SIZE } from '$lib/types';
-	import ImageModal from '$lib/components/media/ImageModal.svelte';
+import { chatStore } from '$lib/stores/chatStore';
+import { streamingStore } from '$lib/stores/streamingStore';
+import { uiStore } from '$lib/stores/uiStore';
+import { modelStore, isImageGenerationModel } from '$lib/stores/modelStore';
+import { toastStore } from '$lib/stores/toastStore';
+import { IMAGE_MODELS, getFileTypeCategory, ALL_SUPPORTED_TYPES, MAX_FILE_SIZE } from '$lib/types';
+import ImageModal from '$lib/components/media/ImageModal.svelte';
+import WebSearchToggle from './WebSearchToggle.svelte';
 	
 	// Props
 	interface Props {
@@ -390,6 +391,11 @@
 					<Send size={16} class="transition-transform duration-200 {isSubmitting ? 'animate-pulse' : ''}" />
 				</button>
 			{/if}
+		</div>
+		
+		<!-- Web Search Toggle at bottom -->
+		<div class="flex items-center gap-2 mt-1">
+			<WebSearchToggle />
 		</div>
 		
 		<!-- Hidden file input -->

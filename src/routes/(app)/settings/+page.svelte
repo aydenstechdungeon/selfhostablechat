@@ -16,7 +16,17 @@
 	let importReplaceModalOpen = $state(false);
 	let pendingImportFile: File | null = $state(null);
 	
-	let activeTab = $state<'general' | 'models' | 'api-keys' | 'appearance' | 'system-prompt' | 'privacy' | 'data'>('general');
+	let activeTab = $state<'general' | 'features' | 'models' | 'api-keys' | 'appearance' | 'system-prompt' | 'privacy' | 'data'>('general');
+
+// Web search settings
+function updateWebSearchSetting<K extends keyof typeof settings.webSearch>(
+  key: K,
+  value: typeof settings.webSearch[K]
+) {
+  settingsStore.updateSettings({
+    webSearch: { ...settings.webSearch, [key]: value }
+  });
+}
 	let systemPrompt = $derived($systemPromptStore);
 	let settings = $derived($settingsStore);
 	let uiState = $derived($uiStore);
@@ -383,6 +393,16 @@
 				</button>
 				<button
 					class="px-4 py-3 text-left rounded-lg transition-all"
+					style:background-color={activeTab === 'features' ? activeBg : 'transparent'}
+					style:color={activeTab === 'features' ? '#4299e1' : textSecondary}
+					onmouseenter={(e) => activeTab !== 'features' && (e.currentTarget.style.backgroundColor = hoverBg)}
+					onmouseleave={(e) => activeTab !== 'features' && (e.currentTarget.style.backgroundColor = 'transparent')}
+					onclick={() => activeTab = 'features'}
+				>
+					Features
+				</button>
+				<button
+					class="px-4 py-3 text-left rounded-lg transition-all"
 					style:background-color={activeTab === 'models' ? activeBg : 'transparent'}
 					style:color={activeTab === 'models' ? '#4299e1' : textSecondary}
 					onmouseenter={(e) => activeTab !== 'models' && (e.currentTarget.style.backgroundColor = hoverBg)}
@@ -496,6 +516,108 @@
 									<p class="text-sm" style:color={textSecondary}>Show typing animation for AI responses</p>
 								</div>
 							</label>
+						</div>
+					</div>
+				{:else if activeTab === 'features'}
+					<div class="tab-panel animate-fadeIn space-y-6">
+						<h2 class="text-xl font-semibold mb-6" style:color={textPrimary}>Features</h2>
+						
+						<!-- Web Search -->
+						<div class="setting-group p-4 rounded-lg border" style:border-color={border}>
+							<div class="flex items-start gap-3">
+								<div class="flex-1">
+									<div class="flex items-center justify-between mb-2">
+										<h3 class="text-sm font-semibold" style:color={textPrimary}>Web Search</h3>
+										<label class="relative inline-flex items-center cursor-pointer">
+											<input
+												type="checkbox"
+												class="sr-only peer"
+												checked={settings.webSearch?.enabled}
+												onchange={(e) => updateWebSearchSetting('enabled', e.currentTarget.checked)}
+											/>
+											<div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#4299e1]"></div>
+										</label>
+									</div>
+									<p class="text-sm mb-4" style:color={textSecondary}>
+										Enable web search to get real-time information and current events in your AI responses. 
+										This adds a small cost per search ($0.02-0.04 per request).
+									</p>
+									
+									{#if settings.webSearch?.enabled}
+										<div class="space-y-4 mt-4 pt-4 border-t" style:border-color={border}>
+											<!-- Search Engine -->
+											<div>
+												<label for="search-engine" class="block text-sm font-medium mb-2" style:color={textPrimary}>Search Engine</label>
+												<select
+													id="search-engine"
+													class="w-full px-3 py-2 rounded-lg border focus:outline-none focus:border-[#4299e1]"
+													style:background-color={inputBg}
+													style:border-color={border}
+													style:color={textPrimary}
+													value={settings.webSearch?.engine ?? ''}
+													onchange={(e) => updateWebSearchSetting('engine', e.currentTarget.value as any || undefined)}
+												>
+													<option value="">Auto (Native for supported models, Exa for others)</option>
+													<option value="native">Native (OpenAI, Anthropic, Perplexity, xAI)</option>
+													<option value="exa">Exa (All models - $4 per 1000 results)</option>
+												</select>
+												<p class="text-xs mt-1" style:color={textSecondary}>
+													Auto mode uses native search for supported providers, falling back to Exa for others.
+												</p>
+											</div>
+											
+											<!-- Max Results -->
+											<div>
+												<label for="max-results" class="block text-sm font-medium mb-2" style:color={textPrimary}>
+													Max Results: {settings.webSearch?.maxResults ?? 5}
+												</label>
+												<input
+													id="max-results"
+													type="range"
+													min="1"
+													max="10"
+													class="w-full"
+													value={settings.webSearch?.maxResults ?? 5}
+													oninput={(e) => updateWebSearchSetting('maxResults', parseInt(e.currentTarget.value))}
+												/>
+												<p class="text-xs mt-1" style:color={textSecondary}>
+													Default is 5. More results provide better context but increase cost.
+												</p>
+											</div>
+											
+											<!-- Search Context Size -->
+											<div>
+												<label for="search-context-size" class="block text-sm font-medium mb-2" style:color={textPrimary}>Search Context Size</label>
+												<div id="search-context-size" class="flex gap-2" role="group" aria-label="Search Context Size">
+													{#each ['low', 'medium', 'high'] as size}
+														<button
+															class="flex-1 px-3 py-2 rounded-lg border text-sm transition-colors"
+															style:background-color={settings.webSearch?.searchContextSize === size ? 'rgba(66, 153, 225, 0.2)' : inputBg}
+															style:border-color={settings.webSearch?.searchContextSize === size ? '#4299e1' : border}
+															style:color={settings.webSearch?.searchContextSize === size ? '#4299e1' : textSecondary}
+															onclick={() => updateWebSearchSetting('searchContextSize', size as any)}
+														>
+															{size.charAt(0).toUpperCase() + size.slice(1)}
+														</button>
+													{/each}
+												</div>
+												<p class="text-xs mt-1" style:color={textSecondary}>
+													Controls how much search context is retrieved. High is best for detailed research.
+												</p>
+											</div>
+										</div>
+									{/if}
+								</div>
+							</div>
+						</div>
+						
+						<!-- Online Mode Note -->
+						<div class="p-4 rounded-lg border" style:border-color={border} style:background-color={inputBg}>
+							<h4 class="text-sm font-semibold mb-2" style:color={textPrimary}>Tip: Online Mode</h4>
+							<p class="text-sm" style:color={textSecondary}>
+								You can also enable web search per-model by adding <code class="px-1 py-0.5 rounded bg-gray-700 text-gray-300">:online</code> to the model slug, 
+								e.g., <code class="px-1 py-0.5 rounded bg-gray-700 text-gray-300">openai/gpt-5.2:online</code>. This overrides the global setting.
+							</p>
 						</div>
 					</div>
 				{:else if activeTab === 'models'}

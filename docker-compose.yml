@@ -4,12 +4,15 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: selfhostablechat
+    # Use host networking for rootless podman (avoids slirp4netns requirement)
     network_mode: host
     environment:
       - NODE_ENV=production
       - PORT=3420
       - HOST=0.0.0.0
       - OPENROUTER_API_URL=${OPENROUTER_API_URL:-https://openrouter.ai/api/v1}
+      # Prefer IPv4 DNS results (helps with container networking)
+      - NODE_OPTIONS=--dns-result-order=ipv4first
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3420/health"]

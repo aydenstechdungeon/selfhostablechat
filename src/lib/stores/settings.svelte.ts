@@ -17,7 +17,13 @@ const defaultSettings: UserSettings = {
 	compactMode: false,
 	codeSyntaxTheme: 'github-dark',
 	privacyOnlyProviders: false,
-	disableChatStoring: false
+	disableChatStoring: false,
+	webSearch: {
+		enabled: false,
+		engine: undefined,
+		maxResults: 5,
+		searchContextSize: 'medium'
+	}
 };
 
 // Create a persisted state for user settings

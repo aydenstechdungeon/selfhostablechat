@@ -1,8 +1,8 @@
-import { createOpenRouterClient, type OpenRouterMessage, type OpenRouterStreamChunk, type OpenRouterUsage, type ImageConfig, type OpenRouterTool } from './openrouter';
+import { createOpenRouterClient, type OpenRouterMessage, type OpenRouterStreamChunk, type OpenRouterUsage, type ImageConfig, type OpenRouterTool, type WebSearchPlugin, type WebSearchOptions, type URLCitation } from './openrouter';
 import { IMAGE_GENERATION_MODELS } from '$lib/types';
 
 export interface StreamChunk {
-  type: 'content' | 'stats' | 'summary' | 'error' | 'done' | 'router';
+  type: 'content' | 'stats' | 'summary' | 'error' | 'done' | 'router' | 'citations';
   content?: string;
   model?: string;
   stats?: {
@@ -18,6 +18,7 @@ export interface StreamChunk {
     model: string;
     reasoning: string;
   };
+  citations?: URLCitation[];
 }
 
 export interface MultiStreamChunk {
@@ -68,17 +69,26 @@ function isImageGenerationModel(model: string): boolean {
   return IMAGE_GENERATION_MODELS.includes(model as any);
 }
 
+export interface WebSearchConfig {
+  enabled: boolean;
+  engine?: 'native' | 'exa';
+  maxResults?: number;
+  searchContextSize?: 'low' | 'medium' | 'high';
+}
+
 export async function* createSSEStream(
   apiKey: string,
   model: string,
   messages: OpenRouterMessage[],
   imageOptions?: ImageGenerationOptions,
-  tools?: OpenRouterTool[]
+  tools?: OpenRouterTool[],
+  webSearch?: WebSearchConfig
 ): AsyncGenerator<StreamChunk> {
   const client = createOpenRouterClient(apiKey);
   const startTime = Date.now();
   let fullContent = '';
   let usage: OpenRouterUsage | undefined;
+  const citations: URLCitation[] = [];
 
   // Check if this is an image generation model
   const isImageGenModel = isImageGenerationModel(model);
@@ -112,9 +122,45 @@ export async function* createSSEStream(
     }
   }
 
+  // Add web search plugin if enabled
+  if (webSearch?.enabled) {
+    // Check if model already has :online suffix
+    if (!model.includes(':online')) {
+      const plugin: WebSearchPlugin = {
+        id: 'web',
+        engine: webSearch.engine,
+        max_results: webSearch.maxResults ?? 5
+      };
+      requestParams.plugins = [plugin];
+      
+      // Add web search options for native search
+      if (webSearch.searchContextSize) {
+        requestParams.web_search_options = {
+          search_context_size: webSearch.searchContextSize
+        };
+      }
+    }
+  }
+
   try {
     for await (const chunk of client.createStreamingCompletion(requestParams)) {
       const delta = chunk.choices[0]?.delta;
+      
+      // Handle annotations/citations from web search
+      if (delta?.annotations && Array.isArray(delta.annotations)) {
+        for (const annotation of delta.annotations) {
+          if (annotation.type === 'url_citation') {
+            citations.push(annotation as URLCitation);
+          }
+        }
+        if (citations.length > 0) {
+          yield {
+            type: 'citations',
+            citations: [...citations],
+            model
+          };
+        }
+      }
       
       // Handle images field from image generation models (non-streaming style)
       if (delta?.images && Array.isArray(delta.images)) {
@@ -173,6 +219,15 @@ export async function* createSSEStream(
       if (chunk.usage) {
         usage = chunk.usage;
       }
+    }
+    
+    // Yield final citations if any
+    if (citations.length > 0) {
+      yield {
+        type: 'citations',
+        citations: citations,
+        model
+      };
     }
 
     const latency = Date.now() - startTime;
@@ -300,11 +355,12 @@ export async function* createMultiModelStream(
   models: string[],
   messages: OpenRouterMessage[],
   imageOptions?: ImageGenerationOptions,
-  tools?: OpenRouterTool[]
+  tools?: OpenRouterTool[],
+  webSearch?: WebSearchConfig
 ): AsyncGenerator<MultiStreamChunk> {
   const streams = models.map(model => ({
     model,
-    generator: createSSEStream(apiKey, model, messages, imageOptions, tools),
+    generator: createSSEStream(apiKey, model, messages, imageOptions, tools, webSearch),
     stats: { tokensInput: 0, tokensOutput: 0, cost: 0, latency: 0, model }
   }));
 

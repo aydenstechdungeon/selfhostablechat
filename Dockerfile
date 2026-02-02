@@ -24,7 +24,7 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package.json ./
@@ -39,6 +39,8 @@ COPY --from=builder /app/build ./build
 ENV NODE_ENV=production
 ENV PORT=3420
 ENV HOST=0.0.0.0
+# Prefer IPv4 DNS results (helps with container networking)
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
 
 # Expose port
 EXPOSE 3420

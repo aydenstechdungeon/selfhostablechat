@@ -6,7 +6,7 @@
 	import VersionSelector from './VersionSelector.svelte';
 	import ReasoningDisplay from './ReasoningDisplay.svelte';
 	import ImageModal from '$lib/components/media/ImageModal.svelte';
-	import { User, Bot, Edit3, Check, X, AlertCircle, FileText, Music, Film, File } from 'lucide-svelte';
+	import { User, Bot, Edit3, Check, X, AlertCircle, FileText, Music, Film, File, Globe, ExternalLink } from 'lucide-svelte';
 	import { chatStore, isStreaming } from '$lib/stores/chatStore';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { tick } from 'svelte';
@@ -349,6 +349,35 @@
 								</button>
 							{/if}
 						{/each}
+					</div>
+				{/if}
+				
+				<!-- Web search citations for assistant messages -->
+				{#if message.citations && message.citations.length > 0 && message.role === 'assistant'}
+					<div class="mt-4 pt-3 border-t border-[#2d3748]">
+						<div class="flex items-center gap-2 mb-2">
+							<Globe size={14} class="text-[#4299e1]" />
+							<span class="text-xs font-medium text-[#4299e1]">Web Sources</span>
+						</div>
+						<div class="flex flex-wrap gap-2">
+							{#each message.citations as citation, index}
+								{#if citation.type === 'url_citation'}
+									<a
+										href={citation.url_citation.url}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0f1419] border border-[#2d3748] hover:border-[#4299e1] transition-colors group"
+										title={citation.url_citation.title}
+									>
+										<span class="text-xs text-[#4299e1] font-medium">[{index + 1}]</span>
+										<span class="text-xs text-[#a0aec0] truncate max-w-[150px] group-hover:text-[#e2e8f0]">
+											{new URL(citation.url_citation.url).hostname.replace(/^www\./, '')}
+										</span>
+										<ExternalLink size={10} class="text-[#718096] group-hover:text-[#4299e1]" />
+									</a>
+								{/if}
+							{/each}
+						</div>
 					</div>
 				{/if}
 				

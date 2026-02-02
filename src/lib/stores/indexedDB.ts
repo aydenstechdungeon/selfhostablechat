@@ -580,7 +580,11 @@ class ChatDatabase {
       transaction.objectStore('messages').clear();
       transaction.objectStore('branches').clear();
       
-      transaction.oncomplete = () => resolve();
+      transaction.oncomplete = () => {
+        // Clear the cache to ensure fresh data on next fetch
+        this.cache.clear();
+        resolve();
+      };
       transaction.onerror = () => reject(transaction.error);
     });
   }

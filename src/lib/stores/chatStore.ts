@@ -8,6 +8,7 @@ import { toastStore } from './toastStore';
 import { modelStore } from './modelStore';
 import { settingsStore } from './settingsStore';
 import { streamingStore } from './streamingStore';
+import type { WebSearchConfig } from '$lib/server/ai/streaming';
 
 // Helper to check if chat storing is disabled
 function isChatStoringDisabled(): boolean {
@@ -632,7 +633,17 @@ const createChatStore = () => {
 
       try {
         const systemPrompt = systemPromptStore.getEffectivePrompt();
+        const settings = get(settingsStore);
         const state = getState();
+        
+        // Build web search config from settings
+        const webSearchConfig: WebSearchConfig | undefined = settings.webSearch?.enabled ? {
+          enabled: true,
+          engine: settings.webSearch.engine,
+          maxResults: settings.webSearch.maxResults,
+          searchContextSize: settings.webSearch.searchContextSize
+        } : undefined;
+        
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -645,7 +656,8 @@ const createChatStore = () => {
             apiKey,
             conversationHistory,
             systemPrompt,
-            imageOptions: state.imageOptions
+            imageOptions: state.imageOptions,
+            webSearch: webSearchConfig
           })
         });
 
@@ -1067,6 +1079,14 @@ const createChatStore = () => {
         }));
         conversationMessages.push({ role: 'user', content });
 
+        // Build web search config from settings
+        const webSearchConfigSend: WebSearchConfig | undefined = get(settingsStore).webSearch?.enabled ? {
+          enabled: true,
+          engine: get(settingsStore).webSearch.engine,
+          maxResults: get(settingsStore).webSearch.maxResults,
+          searchContextSize: get(settingsStore).webSearch.searchContextSize
+        } : undefined;
+        
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1079,7 +1099,8 @@ const createChatStore = () => {
             apiKey,
             conversationHistory: conversationMessages,
             systemPrompt: systemPromptStore.getEffectivePrompt(),
-            imageOptions: state!.imageOptions
+            imageOptions: state!.imageOptions,
+            webSearch: webSearchConfigSend
           })
         });
 
@@ -1215,6 +1236,31 @@ const createChatStore = () => {
                         partialContentMap: newPartialMap
                       };
                     });
+                  }
+                }
+                break;
+                
+              case 'citations':
+                if (event.citations && event.citations.length > 0) {
+                  if (isMultiModel && event.model) {
+                    const msgIndex = selectedModels.indexOf(event.model);
+                    if (msgIndex >= 0 && msgIndex < assistantMessages.length) {
+                      const msgId = assistantMessages[msgIndex].id;
+                      update(s => ({
+                        ...s,
+                        messages: s.messages.map(m => 
+                          m.id === msgId ? { ...m, citations: event.citations } : m
+                        )
+                      }));
+                    }
+                  } else if (assistantMessages.length === 1) {
+                    const msgId = assistantMessages[0].id;
+                    update(s => ({
+                      ...s,
+                      messages: s.messages.map(m => 
+                        m.id === msgId ? { ...m, citations: event.citations } : m
+                      )
+                    }));
                   }
                 }
                 break;

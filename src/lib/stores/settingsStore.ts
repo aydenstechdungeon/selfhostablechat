@@ -18,7 +18,14 @@ const defaultSettings: UserSettings = {
   codeSyntaxTheme: 'github-dark',
   // Privacy-focused settings (default to false for backwards compatibility)
   privacyOnlyProviders: false,
-  disableChatStoring: false
+  disableChatStoring: false,
+  // Web search settings (default to disabled)
+  webSearch: {
+    enabled: false,
+    engine: undefined,
+    maxResults: 5,
+    searchContextSize: 'medium'
+  }
 };
 
 const loadSettings = (): UserSettings => {

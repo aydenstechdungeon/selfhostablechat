@@ -18,6 +18,8 @@ export interface Message {
   isPartial?: boolean;
   // Reasoning/chain-of-thought data
   reasoning?: ReasoningData;
+  // Web search citations
+  citations?: URLCitation[];
 }
 
 // Represents a branch of messages (a conversation path)
@@ -270,6 +272,38 @@ export interface UserSettings {
   // Privacy-focused settings
   privacyOnlyProviders: boolean;
   disableChatStoring: boolean;
+  // Web search settings
+  webSearch: {
+    enabled: boolean;
+    engine: 'native' | 'exa' | undefined;
+    maxResults: number;
+    searchContextSize: 'low' | 'medium' | 'high';
+  };
+}
+
+// Web search plugin configuration
+export interface WebSearchPlugin {
+  id: 'web';
+  engine?: 'native' | 'exa';
+  max_results?: number;
+  search_prompt?: string;
+}
+
+// URL citation annotation from web search results
+export interface URLCitation {
+  type: 'url_citation';
+  url_citation: {
+    url: string;
+    title: string;
+    content?: string;
+    start_index: number;
+    end_index: number;
+  };
+}
+
+// Web search options for API requests
+export interface WebSearchOptions {
+  search_context_size?: 'low' | 'medium' | 'high';
 }
 
 // Note: Old version interfaces removed - now using tree-based branching with MessageBranch
@@ -337,8 +371,8 @@ export const IMAGE_GENERATION_MODELS = [
 ] as const;
 
 export const AUTO_SUPPORTED_MODELS = [
-  'openai/gpt-oss-safeguard-20b:free',
-  'openai/gpt-oss-safeguard-20b',
+  'openai/gpt-oss-20b:free',
+  'openai/gpt-oss-20b',
   'openai/gpt-4o-mini',
   'openai/gpt-5.1',
   'openai/gpt-5.2',

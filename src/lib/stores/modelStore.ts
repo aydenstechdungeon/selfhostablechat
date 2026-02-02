@@ -94,10 +94,26 @@ export function isPrivacyFocusedModel(modelId: string): boolean {
   return PRIVACY_FOCUSED_PROVIDERS.some(p => provider.toLowerCase().includes(p.toLowerCase()));
 }
 
+// Check if a model has the :online suffix for web search
+export function isOnlineModel(modelId: string): boolean {
+  return modelId.includes(':online');
+}
+
+// Strip :online suffix from model ID for display/lookup purposes
+export function getBaseModelId(modelId: string): string {
+  return modelId.replace(/:online$/, '');
+}
+
+// Add :online suffix to model ID
+export function toOnlineModelId(modelId: string): string {
+  if (isOnlineModel(modelId)) return modelId;
+  return `${modelId}:online`;
+}
+
 // Valid OpenRouter models (as of Jan 2026)
 export const AVAILABLE_MODELS = [
   {
-    id: 'openai/gpt-oss-safeguard-20b:free',
+    id: 'openai/gpt-oss-20b:free',
     name: 'GPT OSS 20B Free',
     displayName: 'GPT OSS 20B Free',
     brand: 'OpenAI',
@@ -110,7 +126,7 @@ export const AVAILABLE_MODELS = [
     isAutoSelectable: true
   },
   {
-    id: 'openai/gpt-oss-safeguard-20b',
+    id: 'openai/gpt-oss-20b',
     name: 'GPT OSS 20B',
     displayName: 'GPT OSS 20B',
     brand: 'OpenAI',
