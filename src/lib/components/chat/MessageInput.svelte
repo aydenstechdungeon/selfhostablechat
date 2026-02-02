@@ -25,11 +25,11 @@
 	let attachedFiles = $state<Array<{ type: 'image' | 'video' | 'document' | 'audio' | 'file'; url: string; name: string; mimeType: string; size: number }>>([]);
 	let fileInput: HTMLInputElement | undefined = $state(undefined);
 	
-	// Get current chat ID from page params, submitting state, or chat store
-	// Use submittingChatId only when actively creating a new chat from /chat/new
-	// This prevents flicker when isSubmitting becomes false before URL updates
-	// and ensures we don't show old submittingChatId when navigating back to /chat/new
-	let currentChatId = $derived($page.params.id || (isCreatingNewChat && isSubmitting ? submittingChatId : undefined) || undefined);
+	// Get current chat ID from page params or submitting state
+	// FIX: Use submittingChatId whenever it's set (not just when isSubmitting is true)
+	// This ensures the stop button appears even after isSubmitting becomes false
+	// but before the URL updates via replaceState
+	let currentChatId = $derived($page.params.id || submittingChatId);
 	
 	// Reactive streaming state that properly updates when the store changes
 	// Use a separate state variable that gets updated via an effect to ensure reactivity
@@ -137,6 +137,9 @@
 		const files = [...attachedFiles];
 		attachedFiles = [];
 
+		// Store the chat ID we're submitting to, so we can check it in finally
+		const submissionTargetChatId = submittingChatId;
+
 		try {
 			const chatId = await chatStore.sendMessage(
 				userMessage,
@@ -153,7 +156,16 @@
 				submittingChatId = chatId;
 			}
 		} finally {
-			isSubmitting = false;
+			// FIX: Only reset isSubmitting if we're still on the same chat
+			// This prevents the "permanently disabled send button" issue when
+			// navigating to a new chat while a generation is in progress
+			const currentPageChatId = $page.params.id;
+			const isStillOnSameChat = !currentPageChatId || currentPageChatId === submissionTargetChatId || currentPageChatId === submittingChatId;
+			
+			if (isStillOnSameChat) {
+				isSubmitting = false;
+			}
+			// If we navigated away, the navigation effect will handle resetting isSubmitting
 		}
 	}
 	
