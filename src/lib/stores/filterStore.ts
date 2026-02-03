@@ -31,34 +31,34 @@ function createFilterStore() {
 
   return {
     subscribe,
-    
+
     setSortBy: (sortBy: SortOption) => update(state => ({ ...state, sortBy })),
-    
+
     setDateRange: (dateRange: DateRange) => update(state => ({ ...state, dateRange })),
-    
-    setCostRange: (min: number | null, max: number | null) => 
+
+    setCostRange: (min: number | null, max: number | null) =>
       update(state => ({ ...state, minCost: min, maxCost: max })),
-    
+
     toggleModel: (model: string) => update(state => {
       const models = state.selectedModels.includes(model)
         ? state.selectedModels.filter(m => m !== model)
         : [...state.selectedModels, model];
       return { ...state, selectedModels: models };
     }),
-    
-    setSelectedModels: (models: string[]) => update(state => ({ 
-      ...state, 
-      selectedModels: models 
+
+    setSelectedModels: (models: string[]) => update(state => ({
+      ...state,
+      selectedModels: models
     })),
-    
+
     setSearchQuery: (searchQuery: string) => update(state => ({ ...state, searchQuery })),
-    
+
     setSearchMode: (searchMode: SearchMode) => update(state => ({ ...state, searchMode })),
-    
+
     reset: () => set(initialState),
-    
-    resetFilters: () => update(state => ({ 
-      ...initialState, 
+
+    resetFilters: () => update(state => ({
+      ...initialState,
       searchQuery: state.searchQuery,
       searchMode: state.searchMode
     }))
@@ -72,7 +72,7 @@ let messageCache: Map<string, StoredMessage[]> = new Map();
 
 // Helper function to filter and sort chats
 export async function filterAndSortChats(
-  chats: StoredChat[], 
+  chats: StoredChat[],
   filters: FilterState
 ): Promise<StoredChat[]> {
   let result = [...chats];
@@ -80,10 +80,10 @@ export async function filterAndSortChats(
   // Apply search filter
   if (filters.searchQuery.trim()) {
     const query = filters.searchQuery.toLowerCase();
-    
+
     if (filters.searchMode === 'name') {
       // Search by name only
-      result = result.filter(chat => 
+      result = result.filter(chat =>
         chat.title.toLowerCase().includes(query)
       );
     } else {
@@ -94,11 +94,11 @@ export async function filterAndSortChats(
           if (chat.title.toLowerCase().includes(query)) {
             return chat.id;
           }
-          
+
           // Check message content
           try {
             const messages = await chatDB.getMessages(chat.id);
-            const hasContentMatch = messages.some(msg => 
+            const hasContentMatch = messages.some(msg =>
               msg.content.toLowerCase().includes(query)
             );
             if (hasContentMatch) {
@@ -110,7 +110,7 @@ export async function filterAndSortChats(
           return null;
         })
       );
-      
+
       const matchingIds = new Set(chatIdsWithMatch.filter(Boolean) as string[]);
       result = result.filter(chat => matchingIds.has(chat.id));
     }
@@ -157,8 +157,8 @@ export async function filterAndSortChats(
     result = result.filter(chat => {
       const chatModels = chat.models || [];
       // Use case-insensitive matching for model IDs
-      return filters.selectedModels.some(selectedModel => 
-        chatModels.some(chatModel => 
+      return filters.selectedModels.some(selectedModel =>
+        chatModels.some(chatModel =>
           chatModel.toLowerCase() === selectedModel.toLowerCase()
         )
       );
@@ -192,18 +192,11 @@ export async function filterAndSortChats(
 
 // Format cost with dynamic decimal places
 export function formatCost(cost: number): string {
-  if (cost === 0) return '$0.00';
-  
-  // If cost is less than 0.01, show up to 4 decimal places
+  // If cost is less than 0.01, show 4 decimal places
   if (cost < 0.01) {
-    // Format with 4 decimal places, then trim trailing zeros
-    const formatted = cost.toFixed(4);
-    // Trim trailing zeros but keep at least 2 decimal places
-    // Match: decimal point followed by 0-2 digits (keep), then optional non-zero digits, then zeros
-    const trimmed = formatted.replace(/(\.[0-9]{2})[0-9]*$/, '$1');
-    return `$${trimmed}`;
+    return `$${cost.toFixed(4)}`;
   }
-  
+
   // For larger costs, use 2 decimal places
   return `$${cost.toFixed(2)}`;
 }
