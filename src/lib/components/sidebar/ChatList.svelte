@@ -1,26 +1,33 @@
 <script lang="ts">
-  import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { uiStore } from '$lib/stores/uiStore';
-  import { formatRelativeTime } from '$lib/utils/helpers';
-  import { chatDB, type StoredChat } from '$lib/stores/indexedDB';
-  import { now } from '$lib/stores/timeStore';
-  import { onMount, onDestroy } from 'svelte';
-  import { Trash2, Loader2 } from 'lucide-svelte';
-	import ConfirmModal from '$lib/components/ui/ConfirmModal.svelte';
-	import { filterStore, filterAndSortChats, formatCost } from '$lib/stores/filterStore';
-	import { streamingStore } from '$lib/stores/streamingStore';
-	
-	// Props
-	let { searchQuery = '' }: { searchQuery: string } = $props();
-  
+  import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
+  import { uiStore } from "$lib/stores/uiStore";
+  import { formatRelativeTime } from "$lib/utils/helpers";
+  import { chatDB, type StoredChat } from "$lib/stores/indexedDB";
+  import { now } from "$lib/stores/timeStore";
+  import { onMount, onDestroy } from "svelte";
+  import { Trash2, Loader2 } from "lucide-svelte";
+  import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
+  import {
+    filterStore,
+    filterAndSortChats,
+    formatCost,
+  } from "$lib/stores/filterStore";
+  import { streamingStore } from "$lib/stores/streamingStore";
+
+  // Props
+  let {
+    searchQuery = "",
+    collapsed = false,
+  }: { searchQuery: string; collapsed?: boolean } = $props();
+
   let theme = $derived($uiStore.theme);
   let allChats: StoredChat[] = $state([]);
   let isLoading = $state(true);
   let filters = $derived($filterStore);
   let filteredChats: StoredChat[] = $state([]);
   let isFiltering = $state(false);
-  
+
   // Async filtering effect
   $effect(() => {
     const doFilter = async () => {
@@ -30,42 +37,42 @@
     };
     doFilter();
   });
-  
+
   // Pagination state
   const CHATS_PER_PAGE = 20;
   let visibleCount = $state(CHATS_PER_PAGE);
   let isLoadingMore = $state(false);
   let hasMore = $derived(visibleCount < filteredChats.length);
   let scrollContainer: HTMLDivElement | null = $state(null);
-  
+
   let deleteModalOpen = $state(false);
   let chatToDelete: string | null = $state(null);
-  
+
   // Preserve sidebar scroll position across updates
   let preservedSidebarScrollTop = $state(0);
-  
+
   // Update search query in filter store
   $effect(() => {
     filterStore.setSearchQuery(searchQuery);
   });
-  
+
   // Handle scroll to preserve position
   function handleSidebarScroll() {
     if (scrollContainer) {
       preservedSidebarScrollTop = scrollContainer.scrollTop;
     }
   }
-  
+
   // Restore scroll position after chats load (unless it's initial load)
   $effect(() => {
     if (!isLoading && scrollContainer && preservedSidebarScrollTop > 0) {
       scrollContainer.scrollTop = preservedSidebarScrollTop;
     }
   });
-  
+
   // Only show visible chats
   let visibleChats = $derived(filteredChats.slice(0, visibleCount));
-  
+
   // Track if this is the initial load vs an update
   let isInitialLoad = $state(true);
   // Track previous chat count to detect meaningful changes
@@ -90,11 +97,16 @@
       previousChatCount = newCount;
 
       // If we have a scroll container and want to preserve scroll position
-      if (preserveScroll && scrollContainer && !isMeaningfulChange && !justCompletedChat) {
+      if (
+        preserveScroll &&
+        scrollContainer &&
+        !isMeaningfulChange &&
+        !justCompletedChat
+      ) {
         // Don't reset scroll position for streaming state updates
       }
     } catch (error) {
-      console.error('Failed to load chats:', error);
+      console.error("Failed to load chats:", error);
     } finally {
       isLoading = false;
       isInitialLoad = false;
@@ -120,8 +132,9 @@
 
       debounceTimer = setTimeout(() => {
         // Check if any chat just completed streaming
-        const hadActiveStreams = Array.from($streamingStore.streamingChats.values())
-          .some(s => !s.isStreaming && s.completedAt);
+        const hadActiveStreams = Array.from(
+          $streamingStore.streamingChats.values(),
+        ).some((s) => !s.isStreaming && s.completedAt);
         justCompletedChat = hadActiveStreams;
 
         // Use silent update - don't reset scroll position
@@ -134,7 +147,7 @@
       }, 250); // Longer debounce to batch rapid updates
     };
 
-    window.addEventListener('chat-updated', handleChatUpdate);
+    window.addEventListener("chat-updated", handleChatUpdate);
 
     // Set up intersection observer for infinite scroll
     if (scrollContainer) {
@@ -142,24 +155,24 @@
     }
 
     return () => {
-      window.removeEventListener('chat-updated', handleChatUpdate);
+      window.removeEventListener("chat-updated", handleChatUpdate);
       if (debounceTimer) clearTimeout(debounceTimer);
       if (observer) {
         observer.disconnect();
       }
     };
   });
-  
+
   // Intersection Observer for infinite scroll
   let observer: IntersectionObserver | null = null;
   let loadMoreTrigger: HTMLDivElement | null = $state(null);
-  
+
   function setupIntersectionObserver() {
     if (!loadMoreTrigger) return;
-    
+
     observer = new IntersectionObserver(
       (entries) => {
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
           if (entry.isIntersecting && hasMore && !isLoadingMore) {
             loadMore();
           }
@@ -167,14 +180,14 @@
       },
       {
         root: scrollContainer,
-        rootMargin: '100px', // Start loading before reaching the bottom
-        threshold: 0
-      }
+        rootMargin: "100px", // Start loading before reaching the bottom
+        threshold: 0,
+      },
     );
-    
+
     observer.observe(loadMoreTrigger);
   }
-  
+
   // Re-setup observer when loadMoreTrigger changes
   $effect(() => {
     if (loadMoreTrigger && observer) {
@@ -182,43 +195,41 @@
       setupIntersectionObserver();
     }
   });
-  
+
   async function loadMore() {
     if (isLoadingMore || !hasMore) return;
-    
+
     isLoadingMore = true;
-    
+
     // Simulate a small delay for smooth UX
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     visibleCount += CHATS_PER_PAGE;
     isLoadingMore = false;
   }
-  
+
   // Reset visible count when filters change
   $effect(() => {
     // Reset to first page when filters change
     visibleCount = CHATS_PER_PAGE;
   });
-  
-  let activeChatId = $derived($page.params.id);
-  
 
-  
+  let activeChatId = $derived($page.params.id);
+
   function openDeleteModal(chatId: string, event: MouseEvent) {
     event.stopPropagation();
     chatToDelete = chatId;
     deleteModalOpen = true;
   }
-  
+
   function closeDeleteModal() {
     deleteModalOpen = false;
     chatToDelete = null;
   }
-  
+
   async function confirmDelete() {
     if (!chatToDelete) return;
-    
+
     await chatDB.deleteChat(chatToDelete);
     if (activeChatId === chatToDelete) {
       // Navigate to most recent remaining chat or create new one
@@ -226,23 +237,25 @@
       if (remainingChats.length > 0) {
         goto(`/chat/${remainingChats[0].id}`);
       } else {
-        goto('/chat/new');
+        goto("/chat/new");
       }
     }
     await loadChats();
     closeDeleteModal();
   }
-  
-  let textPrimary = $derived(theme === 'light' ? '#1f2937' : '#e2e8f0');
-  let textSecondary = $derived(theme === 'light' ? '#718096' : '#718096');
-  let activeBg = $derived(theme === 'light' ? '#f3f4f6' : '#2d3748');
-  let hoverBg = $derived(theme === 'light' ? '#f3f4f6' : '#2d3748');
+
+  let textPrimary = $derived(theme === "light" ? "#1f2937" : "#e2e8f0");
+  let textSecondary = $derived(theme === "light" ? "#718096" : "#718096");
+  let activeBg = $derived(theme === "light" ? "#f3f4f6" : "#2d3748");
+  let hoverBg = $derived(theme === "light" ? "#f3f4f6" : "#2d3748");
 
   // Track streaming state for each chat
   let streamingChats = $derived($streamingStore.streamingChats);
   // Track if any chat is currently streaming (to disable animations)
-  let isAnyChatStreaming = $derived(Array.from(streamingChats.values()).some(s => s.isStreaming));
-  
+  let isAnyChatStreaming = $derived(
+    Array.from(streamingChats.values()).some((s) => s.isStreaming),
+  );
+
   function selectChat(chatId: string) {
     // Clear new messages indicator when selecting chat
     streamingStore.clearNewMessages(chatId);
@@ -250,7 +263,7 @@
   }
 </script>
 
-<div 
+<div
   bind:this={scrollContainer}
   class="chat-list flex-1 overflow-y-auto px-2 py-2"
   onscroll={handleSidebarScroll}
@@ -261,7 +274,7 @@
     </div>
   {:else if filteredChats.length === 0}
     <div class="text-center py-8 text-sm" style:color={textSecondary}>
-      {#if searchQuery || filters.dateRange !== 'all' || filters.minCost !== null || filters.maxCost !== null || filters.selectedModels.length > 0}
+      {#if searchQuery || filters.dateRange !== "all" || filters.minCost !== null || filters.maxCost !== null || filters.selectedModels.length > 0}
         No chats match your filters
       {:else}
         No chats yet. Start a new conversation!
@@ -275,36 +288,75 @@
       <div
         class="chat-row w-full flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 mb-1 group hover:translate-x-1"
         class:animate-fade-in-up={!isAnyChatStreaming && isInitialLoad}
-        style:background-color={activeChatId === chat.id ? activeBg : 'transparent'}
-        style:animation-delay={!isAnyChatStreaming && isInitialLoad ? `${index * 0.03}s` : '0s'}
-        onmouseenter={(e) => activeChatId !== chat.id && (e.currentTarget.style.backgroundColor = hoverBg)}
-        onmouseleave={(e) => activeChatId !== chat.id && (e.currentTarget.style.backgroundColor = 'transparent')}
+        class:justify-center={collapsed}
+        class:px-0={collapsed}
+        style:background-color={activeChatId === chat.id
+          ? activeBg
+          : "transparent"}
+        style:animation-delay={!isAnyChatStreaming && isInitialLoad
+          ? `${index * 0.03}s`
+          : "0s"}
+        onmouseenter={(e) =>
+          activeChatId !== chat.id &&
+          (e.currentTarget.style.backgroundColor = hoverBg)}
+        onmouseleave={(e) =>
+          activeChatId !== chat.id &&
+          (e.currentTarget.style.backgroundColor = "transparent")}
         onclick={() => selectChat(chat.id)}
+        title={collapsed ? chat.title : ""}
       >
-        <div class="row-left flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <h4 class="chat-title text-sm font-semibold truncate" style:color={textPrimary}>
-              {chat.title}
-            </h4>
-            {#if chatStreamState?.isStreaming}
-              <span 
-                class="w-2 h-2 rounded-full bg-blue-500 animate-pulse flex-shrink-0"
-                title="Generating..."
-              ></span>
-            {:else if chatStreamState?.hasNewMessages}
-              <span 
-                class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"
-                title="New messages"
-              ></span>
-            {/if}
+        {#if collapsed}
+          <!-- Collapsed View: Icon / Initials -->
+          <div
+            class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-xs font-bold"
+            style:color={textPrimary}
+          >
+            {chat.title.slice(0, 2).toUpperCase()}
           </div>
-          <p class="chat-preview text-xs truncate" style:color={textSecondary}>
-            {chat.messageCount} messages · {formatCost(chat.totalCost)}
-          </p>
-        </div>
+          {#if chatStreamState?.isStreaming}
+            <div
+              class="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse"
+            ></div>
+          {:else if chatStreamState?.hasNewMessages}
+            <div
+              class="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-500"
+            ></div>
+          {/if}
+        {:else}
+          <div class="row-left flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <h4
+                class="chat-title text-sm font-semibold truncate"
+                style:color={textPrimary}
+              >
+                {chat.title}
+              </h4>
+              {#if chatStreamState?.isStreaming}
+                <span
+                  class="w-2 h-2 rounded-full bg-blue-500 animate-pulse flex-shrink-0"
+                  title="Generating..."
+                ></span>
+              {:else if chatStreamState?.hasNewMessages}
+                <span
+                  class="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"
+                  title="New messages"
+                ></span>
+              {/if}
+            </div>
+            <p
+              class="chat-preview text-xs truncate"
+              style:color={textSecondary}
+            >
+              {chat.messageCount} messages · {formatCost(chat.totalCost)}
+            </p>
+          </div>
+        {/if}
 
         <div class="row-right flex-shrink-0 flex items-center gap-2">
-          <span class="timestamp text-[11px] whitespace-nowrap" style:color={textSecondary}>
+          <span
+            class="timestamp text-[11px] whitespace-nowrap"
+            style:color={textSecondary}
+          >
             {$now && formatRelativeTime(new Date(chat.updatedAt))}
           </span>
           <button
@@ -318,9 +370,9 @@
         </div>
       </div>
     {/each}
-    
+
     <!-- Load more trigger element -->
-    <div 
+    <div
       bind:this={loadMoreTrigger}
       class="load-more-trigger h-16 flex items-center justify-center"
     >
@@ -364,7 +416,7 @@
       transform: translateY(0);
     }
   }
-  
+
   .animate-fade-in-up {
     animation: fadeInUp 0.3s ease-out forwards;
     opacity: 0;
