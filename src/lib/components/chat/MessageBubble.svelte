@@ -260,6 +260,9 @@
 								src={media.url} 
 								alt=""
 								class="w-24 h-24 object-cover hover:scale-105 transition-transform duration-200"
+								loading="lazy"
+								fetchpriority="low"
+								decoding="async"
 							/>
 								<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
 									<span class="text-white opacity-0 group-hover:opacity-100 text-xs font-medium">View</span>
@@ -338,6 +341,9 @@
 											src={media.url}
 											alt={media.name || ''}
 											class="max-w-full w-auto h-auto max-h-[300px] object-contain hover:scale-105 transition-transform duration-200"
+											loading="lazy"
+											fetchpriority="low"
+											decoding="async"
 										/>
 									{/if}
 									<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">

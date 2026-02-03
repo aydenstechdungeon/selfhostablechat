@@ -334,6 +334,8 @@
 			onload={() => isLoading = false}
 			onerror={() => isLoading = false}
 			draggable={false}
+			fetchpriority="high"
+			decoding="async"
 		/>
 	</div>
 	

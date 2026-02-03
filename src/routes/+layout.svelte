@@ -8,8 +8,15 @@
 
 <svelte:head>
 	<title>AI Chat Application</title>
+	<!-- Preconnect to Google Fonts for faster connection -->
 	<link rel="preconnect" href="https://fonts.googleapis.com" />
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+	
+	<!-- DNS prefetch for API domains used by the app -->
+	<link rel="dns-prefetch" href="https://openrouter.ai" />
+	<link rel="preconnect" href="https://openrouter.ai" crossorigin="anonymous" />
+	
+	<!-- Load fonts normally - preconnect handles the optimization -->
 	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 </svelte:head>
 

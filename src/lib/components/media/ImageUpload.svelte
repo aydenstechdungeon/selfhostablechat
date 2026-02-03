@@ -117,6 +117,8 @@
 								src={file.url} 
 								alt={file.name}
 								class="w-full h-full object-cover"
+								fetchpriority="high"
+								decoding="async"
 							/>
 						</div>
 						<button

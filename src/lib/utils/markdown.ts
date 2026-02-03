@@ -80,16 +80,19 @@ renderer.image = ({ href, text }: { href: string; text: string }) => {
 	}
 	
 	// Create a clickable image that will trigger the image modal via event delegation
+	// Uses lazy loading with low fetch priority for off-screen images
 	return `<button 
     class="image-preview-button relative group overflow-hidden rounded-lg border border-[#2d3748] hover:border-[#4299e1] transition-colors inline-block my-2 cursor-pointer bg-transparent p-0"
-    data-image-url="${safeHref.replace(/"/g, '"')}"
-    data-image-alt="${(text || 'Image').replace(/"/g, '"')}"
+    data-image-url="${safeHref.replace(/"/g, '&quot;')}" 
+    data-image-alt="${(text || 'Image').replace(/"/g, '&quot;')}"
   >
     <img 
-      src="${safeHref.replace(/"/g, '"')}" 
-      alt="${(text || '').replace(/"/g, '"')}" 
+      src="${safeHref.replace(/"/g, '&quot;')}" 
+      alt="${(text || '').replace(/"/g, '&quot;')}" 
       class="max-w-full h-auto max-h-[65vh] block object-contain"
       loading="lazy"
+      fetchpriority="low"
+      decoding="async"
       onerror="this.style.display='none'; this.parentElement.style.display='none';"
     />
     <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center pointer-events-none">

@@ -3,13 +3,23 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<!-- Favicon -->
-		<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+		<meta name="description" content="AI Chat Application - A modern interface for AI conversations" />
+		
+		<!-- Preconnect to external domains -->
+		<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin="anonymous" />
+		
+		<!-- Preload critical fonts (if using Google Fonts, add in layout) -->
+		
+		<!-- Favicon - fetchpriority low as they're not immediately visible -->
+		<link rel="icon" type="image/x-icon" href="/favicon.ico" fetchpriority="low" />
 		<!-- App Icons -->
-		<link rel="icon" type="image/webp" sizes="128x128" href="/webaicat128.webp" />
-		<link rel="icon" type="image/webp" sizes="256x256" href="/webaicat256.webp" />
-		<link rel="apple-touch-icon" type="image/webp" sizes="512x512" href="/webaicat512.webp" />
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+		<link rel="icon" type="image/webp" sizes="128x128" href="/webaicat128.webp" fetchpriority="low" />
+		<link rel="icon" type="image/webp" sizes="256x256" href="/webaicat256.webp" fetchpriority="low" />
+		<link rel="apple-touch-icon" type="image/webp" sizes="512x512" href="/webaicat512.webp" fetchpriority="low" />
+		
+		<!-- Preload critical CSS asynchronously with low priority -->
+		<link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" as="style" fetchpriority="low" onload="this.onload=null;this.rel='stylesheet'">
+		<noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css"></noscript>
 		<style>
 			/* Global smooth transitions */
 			* {
