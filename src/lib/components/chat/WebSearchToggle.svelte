@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { settingsStore } from '$lib/stores/settingsStore';
+	import { uiStore } from '$lib/stores/uiStore';
 	import { Globe, AlertCircle } from 'lucide-svelte';
 	
 	let settings = $derived($settingsStore);
 	let isEnabled = $derived(settings.webSearch?.enabled ?? false);
 	
-	let theme = $derived($settingsStore.theme === 'auto' 
+	let theme = $derived($uiStore.theme === 'auto'
 		? (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-		: $settingsStore.theme
+		: $uiStore.theme
 	);
 	
 	function toggleWebSearch() {

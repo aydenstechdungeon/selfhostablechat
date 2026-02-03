@@ -206,12 +206,9 @@ const createChatStore = () => {
     imageOptions: {}
   });
 
-  // Helper to get current state - defined inside factory to avoid circular reference
+  // Helper to get current state - uses Svelte's get() for proper cleanup
   const getState = (): ChatState => {
-    let state: ChatState | undefined;
-    const unsubscribe = subscribe(s => { state = s; });
-    unsubscribe();
-    return state!;
+    return get({ subscribe });
   };
 
   const parseSSELine = (line: string) => {
@@ -229,7 +226,7 @@ const createChatStore = () => {
 
   // Build the visible message list from the tree structure with optimizations
   const buildVisibleMessages = async (
-    chatId: string, 
+    chatId: string,
     activeSelections?: Map<string | null, string>
   ): Promise<Message[]> => {
     const allStoredMessages = await chatDB.getMessages(chatId);
@@ -255,13 +252,13 @@ const createChatStore = () => {
 
     // Build visible messages by following active selections
     const visibleMessages: Message[] = [];
-    
+
     const buildFrom = (parentId: string | null) => {
       const siblings = childrenByParent.get(parentId);
       if (!siblings || siblings.length === 0) return;
 
       let activeMessage: typeof allStoredMessages[0] | undefined;
-      
+
       if (activeSelections) {
         const selectedId = activeSelections.get(parentId);
         if (selectedId) {
@@ -273,17 +270,17 @@ const createChatStore = () => {
           }
         }
       }
-      
+
       if (!activeMessage) {
         activeMessage = siblings[siblings.length - 1];
       }
 
       if (activeMessage) {
         // Use cached image extraction for assistant messages
-        const generatedMedia = activeMessage.role === 'assistant' 
+        const generatedMedia = activeMessage.role === 'assistant'
           ? getImagesFromContent(activeMessage.content)
           : undefined;
-        
+
         visibleMessages.push({
           id: activeMessage.id,
           role: activeMessage.role === 'system' ? 'assistant' : activeMessage.role,
@@ -316,7 +313,7 @@ const createChatStore = () => {
   ): Promise<Map<string | null, string>> => {
     const allStoredMessages = await chatDB.getMessages(chatId);
     const activePath = new Map<string | null, string>();
-    
+
     const childrenByParent = new Map<string | null, typeof allStoredMessages>();
     for (let i = 0; i < allStoredMessages.length; i++) {
       const msg = allStoredMessages[i];
@@ -365,16 +362,16 @@ const createChatStore = () => {
   const getSiblings = async (messageId: string): Promise<Message[]> => {
     const message = await chatDB.getMessage(messageId);
     if (!message) return [];
-    
+
     const siblings = await chatDB.getSiblingMessages(message.parentId ?? null, message.chatId);
-    
+
     const filteredSiblings = siblings.filter(s => s.role === message.role);
-    
+
     return filteredSiblings.map(s => {
-      const generatedMedia = s.role === 'assistant' 
+      const generatedMedia = s.role === 'assistant'
         ? getImagesFromContent(s.content)
         : undefined;
-      
+
       return {
         id: s.id,
         role: s.role === 'system' ? 'assistant' : s.role,
@@ -400,12 +397,12 @@ const createChatStore = () => {
 
   const flushBatch = () => {
     if (pendingUpdates.length === 0) return;
-    
+
     // Merge all pending updates
     const merged = pendingUpdates.reduce((acc, update) => ({ ...acc, ...update }), {});
     pendingUpdates = [];
     batchTimeout = null;
-    
+
     // Apply single update
     update(state => ({ ...state, ...merged }));
   };
@@ -419,7 +416,7 @@ const createChatStore = () => {
 
   return {
     subscribe,
-    
+
     setActiveChat: (chatId: string) => update(state => {
       const isCurrentlyStreaming = streamingStore.isChatStreaming(chatId);
       const abortController = isCurrentlyStreaming
@@ -451,17 +448,24 @@ const createChatStore = () => {
       try {
         const chat = await chatDB.getChat(chatId);
         const state = getState();
-        const messages = await buildVisibleMessages(chatId, state.activePath);
-        
+
+        let activePath = state.activePath;
+        if (chat?.currentLeafMessageId) {
+          activePath = await buildActivePathFromMessage(chatId, chat.currentLeafMessageId);
+        }
+
+        const messages = await buildVisibleMessages(chatId, activePath);
+
         const isCurrentlyStreaming = streamingStore.isChatStreaming(chatId);
         const abortController = isCurrentlyStreaming
           ? (streamingStore.getAbortController(chatId) || null)
           : null;
-        
+
         update(state => ({
           ...state,
           activeChatId: chatId,
           messages,
+          activePath,
           isStreaming: isCurrentlyStreaming,
           abortController,
         }));
@@ -490,6 +494,16 @@ const createChatStore = () => {
           messages,
           activePath: newActivePath
         }));
+
+        // Persist the new leaf position
+        if (!isChatStoringDisabled() && messages.length > 0) {
+          const lastMsg = messages[messages.length - 1];
+          const chat = await chatDB.getChat(state.activeChatId);
+          if (chat) {
+            chat.currentLeafMessageId = lastMsg.id;
+            await chatDB.saveChat(chat);
+          }
+        }
       } catch (error) {
         console.error('Failed to switch version:', error);
         toastStore.show('Failed to switch version', 'error');
@@ -542,6 +556,14 @@ const createChatStore = () => {
         const messages = await buildVisibleMessages(state.activeChatId, newActivePath);
         update(state => ({ ...state, messages, activePath: newActivePath }));
 
+        if (!isChatStoringDisabled()) {
+          const chat = await chatDB.getChat(state.activeChatId);
+          if (chat) {
+            chat.currentLeafMessageId = newUserMessageId;
+            await chatDB.saveChat(chat);
+          }
+        }
+
         await this.regenerateResponse(newUserMessageId);
 
       } catch (error) {
@@ -551,9 +573,7 @@ const createChatStore = () => {
     },
 
     async regenerateResponse(userMessageId: string) {
-      let state: ChatState;
-      const unsubscribe = subscribe(s => { state = s; });
-      unsubscribe();
+      const state = getState();
 
       const apiKey = apiKeyStore.loadApiKey();
       if (!apiKey) {
@@ -562,7 +582,7 @@ const createChatStore = () => {
         return;
       }
 
-      if (!state!.activeChatId) return;
+      if (!state.activeChatId) return;
 
       const modelState = get(modelStore);
       const mode = modelState.autoMode ? 'auto' : 'manual';
@@ -571,7 +591,7 @@ const createChatStore = () => {
       const userMessage = await chatDB.getMessage(userMessageId);
       if (!userMessage) return;
 
-      const currentSiblings = await chatDB.getSiblingMessages(userMessageId, state!.activeChatId);
+      const currentSiblings = await chatDB.getSiblingMessages(userMessageId, state.activeChatId);
       const newBranchIndex = currentSiblings.length;
 
       const assistantMessageId = crypto.randomUUID();
@@ -588,7 +608,7 @@ const createChatStore = () => {
       if (!isChatStoringDisabled()) {
         await chatDB.saveMessage({
           id: assistantMessage.id,
-          chatId: state!.activeChatId!,
+          chatId: state.activeChatId!,
           role: 'assistant',
           content: '',
           createdAt: assistantMessage.timestamp,
@@ -597,10 +617,10 @@ const createChatStore = () => {
         });
       }
 
-      const newActivePath = new Map(state!.activePath);
+      const newActivePath = new Map(state.activePath);
       newActivePath.set(userMessageId, assistantMessageId);
 
-      const visibleMessages = await buildVisibleMessages(state!.activeChatId!, newActivePath);
+      const visibleMessages = await buildVisibleMessages(state.activeChatId!, newActivePath);
 
       const abortController = new AbortController();
 
@@ -620,10 +640,11 @@ const createChatStore = () => {
         streamingMessageIds: [assistantMessageId]
       }));
 
-      const chatInfo = await chatDB.getChat(state!.activeChatId!);
+      const activeChatId = state.activeChatId;
+      const chatInfo = await chatDB.getChat(activeChatId!);
       const chatName = chatInfo?.title || 'Unknown Chat';
-      
-      streamingStore.startStreaming(state!.activeChatId!, chatName, abortController);
+
+      streamingStore.startStreaming(activeChatId!, chatName, abortController);
 
       const path = await chatDB.getMessagePath(userMessageId);
       const conversationHistory = path.map(m => ({
@@ -634,8 +655,8 @@ const createChatStore = () => {
       try {
         const systemPrompt = systemPromptStore.getEffectivePrompt();
         const settings = get(settingsStore);
-        const state = getState();
-        
+        const currentImageOptions = getState().imageOptions;
+
         // Build web search config from settings
         const webSearchConfig: WebSearchConfig | undefined = settings.webSearch?.enabled ? {
           enabled: true,
@@ -643,7 +664,7 @@ const createChatStore = () => {
           maxResults: settings.webSearch.maxResults,
           searchContextSize: settings.webSearch.searchContextSize
         } : undefined;
-        
+
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -656,7 +677,7 @@ const createChatStore = () => {
             apiKey,
             conversationHistory,
             systemPrompt,
-            imageOptions: state.imageOptions,
+            imageOptions: currentImageOptions,
             webSearch: webSearchConfig
           })
         });
@@ -689,7 +710,7 @@ const createChatStore = () => {
           }
 
           const { done, value } = await reader.read();
-          
+
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
@@ -709,7 +730,7 @@ const createChatStore = () => {
                 assistantModel = event.routerDecision?.model;
                 update(s => ({
                   ...s,
-                  messages: s.messages.map(m => 
+                  messages: s.messages.map(m =>
                     m.id === assistantMessageId ? { ...m, model: assistantModel } : m
                   )
                 }));
@@ -726,7 +747,7 @@ const createChatStore = () => {
                     newPartialMap.set(assistantMessageId, assistantContent);
                     return {
                       ...s,
-                      messages: s.messages.map(m => 
+                      messages: s.messages.map(m =>
                         m.id === assistantMessageId ? { ...m, content: assistantContent, generatedMedia: generatedMediaRegen } : m
                       ),
                       partialContentMap: newPartialMap
@@ -740,7 +761,7 @@ const createChatStore = () => {
                     newPartialMap.set(assistantMessageId, assistantContent);
                     return {
                       ...s,
-                      messages: s.messages.map(m => 
+                      messages: s.messages.map(m =>
                         m.id === assistantMessageId ? { ...m, content: assistantContent } : m
                       ),
                       partialContentMap: newPartialMap
@@ -810,9 +831,9 @@ const createChatStore = () => {
 
         update(s => ({
           ...s,
-          messages: s.messages.map(m => 
-            m.id === assistantMessageId 
-              ? { ...m, content: assistantContent, model: assistantModel, stats: messageStats } 
+          messages: s.messages.map(m =>
+            m.id === assistantMessageId
+              ? { ...m, content: assistantContent, model: assistantModel, stats: messageStats }
               : m
           )
         }));
@@ -824,16 +845,23 @@ const createChatStore = () => {
             sum + (m.stats?.tokensInput || 0) + (m.stats?.tokensOutput || 0), 0
           );
           const models = [...new Set(allMessages.map(m => m.model).filter(Boolean))] as string[];
-          
+
           await chatDB.updateChatStats(state!.activeChatId!, {
             messageCount: allMessages.length,
             totalCost,
             totalTokens,
             models
           });
-          
+
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('chat-updated'));
+          }
+
+          // Persist the new leaf position (assistant message)
+          const chat = await chatDB.getChat(state!.activeChatId!);
+          if (chat) {
+            chat.currentLeafMessageId = assistantMessageId;
+            await chatDB.saveChat(chat);
           }
         }
 
@@ -858,7 +886,7 @@ const createChatStore = () => {
 
         const completedChatInfo = await chatDB.getChat(state!.activeChatId!);
         const completedChatName = completedChatInfo?.title || 'Unknown Chat';
-        
+
         streamingStore.completeStreaming(state!.activeChatId!, completedChatName);
 
       } catch (error) {
@@ -885,7 +913,7 @@ const createChatStore = () => {
       if (isChatStoringDisabled()) {
         return;
       }
-      
+
       try {
         await chatDB.saveChat({
           id: chatId,
@@ -929,9 +957,9 @@ const createChatStore = () => {
       const selectedModels = modelState.selectedModels;
 
       const chatId = (!state!.activeChatId) ? crypto.randomUUID() : state!.activeChatId;
-      
+
       const needsNavigation = !state!.activeChatId && typeof window !== 'undefined';
-      
+
       const existingChat = await chatDB.getChat(chatId);
       if (!existingChat) {
         const title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
@@ -979,6 +1007,12 @@ const createChatStore = () => {
           parentId,
           branchIndex: 0
         });
+
+        const chat = await chatDB.getChat(chatId);
+        if (chat) {
+          chat.currentLeafMessageId = userMessage.id;
+          await chatDB.saveChat(chat);
+        }
       }
 
       const newActivePath = new Map(state!.activePath);
@@ -1069,7 +1103,7 @@ const createChatStore = () => {
 
       const sendChatInfo = await chatDB.getChat(chatId);
       const sendChatName = sendChatInfo?.title || 'Unknown Chat';
-      
+
       streamingStore.startStreaming(chatId, sendChatName, abortController);
 
       try {
@@ -1086,7 +1120,7 @@ const createChatStore = () => {
           maxResults: get(settingsStore).webSearch.maxResults,
           searchContextSize: get(settingsStore).webSearch.searchContextSize
         } : undefined;
-        
+
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1136,7 +1170,7 @@ const createChatStore = () => {
           }
 
           const { done, value } = await reader.read();
-          
+
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
@@ -1158,7 +1192,7 @@ const createChatStore = () => {
                   assistantModels.set(msgId, event.routerDecision?.model);
                   update(s => ({
                     ...s,
-                    messages: s.messages.map(m => 
+                    messages: s.messages.map(m =>
                       m.id === msgId ? { ...m, model: event.routerDecision?.model } : m
                     )
                   }));
@@ -1181,7 +1215,7 @@ const createChatStore = () => {
                         newPartialMap.set(msgId, newContent);
                         return {
                           ...s,
-                          messages: s.messages.map(m => 
+                          messages: s.messages.map(m =>
                             m.id === msgId ? { ...m, content: newContent, generatedMedia } : m
                           ),
                           partialContentMap: newPartialMap
@@ -1194,7 +1228,7 @@ const createChatStore = () => {
                         newPartialMap.set(msgId, newContent);
                         return {
                           ...s,
-                          messages: s.messages.map(m => 
+                          messages: s.messages.map(m =>
                             m.id === msgId ? { ...m, content: newContent } : m
                           ),
                           partialContentMap: newPartialMap
@@ -1215,7 +1249,7 @@ const createChatStore = () => {
                       newPartialMap.set(msgId, newContent);
                       return {
                         ...s,
-                        messages: s.messages.map(m => 
+                        messages: s.messages.map(m =>
                           m.id === msgId ? { ...m, content: newContent, generatedMedia } : m
                         ),
                         streamingModel: event.model || s.streamingModel,
@@ -1229,7 +1263,7 @@ const createChatStore = () => {
                       newPartialMap.set(msgId, newContent);
                       return {
                         ...s,
-                        messages: s.messages.map(m => 
+                        messages: s.messages.map(m =>
                           m.id === msgId ? { ...m, content: newContent } : m
                         ),
                         streamingModel: event.model || s.streamingModel,
@@ -1239,7 +1273,7 @@ const createChatStore = () => {
                   }
                 }
                 break;
-                
+
               case 'citations':
                 if (event.citations && event.citations.length > 0) {
                   if (isMultiModel && event.model) {
@@ -1248,7 +1282,7 @@ const createChatStore = () => {
                       const msgId = assistantMessages[msgIndex].id;
                       update(s => ({
                         ...s,
-                        messages: s.messages.map(m => 
+                        messages: s.messages.map(m =>
                           m.id === msgId ? { ...m, citations: event.citations } : m
                         )
                       }));
@@ -1257,7 +1291,7 @@ const createChatStore = () => {
                     const msgId = assistantMessages[0].id;
                     update(s => ({
                       ...s,
-                      messages: s.messages.map(m => 
+                      messages: s.messages.map(m =>
                         m.id === msgId ? { ...m, citations: event.citations } : m
                       )
                     }));
@@ -1325,7 +1359,7 @@ const createChatStore = () => {
             const finalContent = assistantContents.get(msg.id) || '';
             const finalModel = assistantModels.get(msg.id) || msg.model;
             const finalStats = messageStatsMap.get(msg.id);
-            
+
             await chatDB.saveMessage({
               id: msg.id,
               chatId,
@@ -1361,16 +1395,26 @@ const createChatStore = () => {
             sum + (m.stats?.tokensInput || 0) + (m.stats?.tokensOutput || 0), 0
           );
           const models = [...new Set(allStoredMessages.map(m => m.model).filter(Boolean))] as string[];
-          
+
           await chatDB.updateChatStats(chatId, {
             messageCount: allStoredMessages.length,
             totalCost,
             totalTokens,
             models
           });
-          
+
           if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('chat-updated'));
+          }
+
+          // Persist the new leaf position (assistant message - use the last one)
+          if (assistantMessages.length > 0) {
+            const lastAssistantId = assistantMessages[assistantMessages.length - 1].id;
+            const chat = await chatDB.getChat(chatId);
+            if (chat) {
+              chat.currentLeafMessageId = lastAssistantId;
+              await chatDB.saveChat(chat);
+            }
           }
         }
 
@@ -1395,7 +1439,7 @@ const createChatStore = () => {
 
         const finalChatInfo = await chatDB.getChat(chatId);
         const finalChatName = finalChatInfo?.title || 'Unknown Chat';
-        
+
         streamingStore.completeStreaming(chatId, finalChatName);
 
       } catch (error) {
@@ -1423,14 +1467,14 @@ const createChatStore = () => {
       const state = getState();
       if (state.abortController) {
         state.abortController.abort();
-        
+
         if (state.activeChatId) {
           streamingStore.stopStreaming(state.activeChatId);
         }
-        
+
         const partialContentMap = state.partialContentMap;
         const streamingMessageIds = state.streamingMessageIds;
-        
+
         if (!isChatStoringDisabled() && streamingMessageIds.length > 0 && partialContentMap.size > 0 && state.activeChatId) {
           try {
             for (const messageId of streamingMessageIds) {
@@ -1446,12 +1490,12 @@ const createChatStore = () => {
                 }
               }
             }
-            
+
             const totalSaved = streamingMessageIds.filter(id => {
               const content = partialContentMap.get(id);
               return content && content.trim().length > 0;
             }).length;
-            
+
             if (totalSaved > 0) {
               toastStore.show(`Saved ${totalSaved} partial response${totalSaved > 1 ? 's' : ''}`, 'info');
             }
@@ -1459,7 +1503,7 @@ const createChatStore = () => {
             console.error('Failed to save partial content:', error);
           }
         }
-        
+
         update(s => ({
           ...s,
           isStreaming: false,
@@ -1497,7 +1541,7 @@ const createChatStore = () => {
 
     updateMessage: (messageId: string, updates: Partial<Message>) => update(state => ({
       ...state,
-      messages: state.messages.map(msg => 
+      messages: state.messages.map(msg =>
         msg.id === messageId ? { ...msg, ...updates } : msg
       )
     })),
@@ -1530,7 +1574,7 @@ const createChatStore = () => {
         batchTimeout = null;
       }
       pendingUpdates = [];
-      
+
       set({
         activeChatId: null,
         messages: [],
@@ -1561,13 +1605,13 @@ const createChatStore = () => {
           // Ignore abort errors
         }
       }
-      
+
       if (batchTimeout) {
         clearTimeout(batchTimeout);
         batchTimeout = null;
       }
       pendingUpdates = [];
-      
+
       set({
         activeChatId: null,
         messages: [],

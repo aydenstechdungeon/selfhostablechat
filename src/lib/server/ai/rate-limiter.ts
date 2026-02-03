@@ -69,6 +69,13 @@ class RateLimiter {
     this.limits.delete(key);
   }
 
+  decrement(key: string): void {
+    const entry = this.limits.get(key);
+    if (entry && entry.count > 0) {
+      entry.count--;
+    }
+  }
+
   private evictLRU(): void {
     // Find and remove the least recently used entry
     let oldestKey: string | null = null;

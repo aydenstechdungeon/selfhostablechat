@@ -47,9 +47,6 @@
 	let isSaving = $state(false);
 	let contentElement: HTMLDivElement | undefined = $state();
 	
-	// Check if this message has siblings (is part of a branch)
-	let hasSiblings = $derived(siblings.length > 1);
-	
 	// Parse markdown content for assistant messages with streaming awareness
 	let parsedContent = $derived(message.role === 'assistant'
 		? parseMarkdown(message.content, showStreaming)
@@ -138,7 +135,7 @@
 		}
 	}
 	
-	async function handleVersionSwitch(messageId: string, index: number) {
+	async function handleVersionSwitch(messageId: string) {
 		await chatStore.switchVersion(messageId);
 	}
 	
@@ -393,14 +390,12 @@
 				{/if}
 				
 				<!-- Version selector for messages with siblings (both user and assistant) -->
-				{#if hasSiblings}
-					<VersionSelector 
-						{siblings}
-						{currentIndex}
-						onSwitch={handleVersionSwitch}
-						messageRole={message.role}
-					/>
-				{/if}
+				<VersionSelector
+					{siblings}
+					{currentIndex}
+					onSwitch={handleVersionSwitch}
+					messageRole={message.role}
+				/>
 			{/if}
 		</div>
 	</div>

@@ -5,11 +5,29 @@ const config = {
 	kit: {
 		adapter: adapter({
 			out: 'build',
-			precompress: false,
+			precompress: true,
 			envPrefix: ''
 		}),
 		serviceWorker: {
-			register: false
+			register: true
+		},
+		prerender: {
+			entries: [
+				'*',
+				'/chat/new',
+				'/settings',
+				'/dashboard'
+			],
+			handleHttpError: ({ path, message }) => {
+				// Ignore errors from dynamic routes that will be handled at runtime
+				if (path.startsWith('/api/')) {
+					console.warn(`Skipping API route during prerender: ${path}`);
+					return;
+				}
+				// Fail on other errors
+				throw new Error(message);
+			},
+			handleMissingId: 'ignore'
 		}
 	}
 };

@@ -44,11 +44,27 @@ const loadSettings = (): UserSettings => {
 
 const createSettingsStore = () => {
   const { subscribe, set, update } = writable<UserSettings>(loadSettings());
+  
+  // Debounce timer for localStorage writes
+  let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const saveToLocalStorage = (settings: UserSettings) => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('userSettings', JSON.stringify(settings));
+    if (typeof window === 'undefined') return;
+    
+    // Clear pending save
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
     }
+    
+    // Debounce localStorage writes to prevent blocking main thread
+    saveTimeout = setTimeout(() => {
+      try {
+        localStorage.setItem('userSettings', JSON.stringify(settings));
+      } catch (e) {
+        console.error('Failed to save settings:', e);
+      }
+      saveTimeout = null;
+    }, 100);
   };
 
   return {
