@@ -60,7 +60,7 @@
 	>
 		{#if !collapsed}
 			<div class="flex items-center gap-2">
-				<img
+				<enhanced:img
 					src="/webaicat128.webp"
 					alt="Logo"
 					class="w-6 h-6 rounded"
