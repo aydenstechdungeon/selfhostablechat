@@ -198,6 +198,92 @@ dnf install fuse fuse-libs
 - **Port 3421**: Default server port for desktop app
 - **Client-side storage**: All data stored locally (IndexedDB/localStorage)
 
+## 📱 Mobile App (Android via Capacitor)
+
+Build a native Android application with bundled Node.js server using Capacitor.
+
+### Prerequisites
+
+- [Bun](https://bun.sh) runtime
+- [Android Studio](https://developer.android.com/studio)
+- Java JDK 17 or higher
+
+### Quick Build
+
+```bash
+# Build the Android app
+bun run mobile
+
+# Open in Android Studio
+bun run mobile:open
+```
+
+Then build the APK in Android Studio:
+- Build → Build Bundle(s) / APK(s) → Build APK(s)
+
+### Development
+
+For development with live reload:
+
+1. **Start dev server**
+   ```bash
+   bun run dev
+   ```
+
+2. **Update capacitor.config.ts** to point to your local IP:
+   ```ts
+   server: {
+     url: 'http://YOUR_LOCAL_IP:5173',
+     cleartext: true
+   }
+   ```
+
+3. **Sync and open**
+   ```bash
+   bun run capacitor:sync
+   bun run mobile:open
+   ```
+
+### Mobile App Features
+
+- **Bundled Server**: Self-contained with embedded Node.js runtime (nodejs-mobile)
+- **Port 3422**: Default server port for Android app
+- **Offline Capable**: All data stored locally on device
+- **Auto-start Server**: Server automatically starts when app launches
+- **Native Performance**: Uses native Android WebView
+
+### Build Process
+
+The `bun run mobile` command:
+1. Builds SvelteKit app (client + server)
+2. Copies server to `android/app/src/main/nodejs-assets/nodejs-project/`
+3. Bundles production dependencies
+4. Creates `main.js` entry point for nodejs-mobile
+5. Syncs with Capacitor
+
+### Platform Support
+
+- **Android**: APK (portable) and AAB (Play Store)
+- Architecture: ARM64, ARMv7 (via nodejs-mobile)
+- Minimum SDK: 24 (Android 7.0)
+
+### Troubleshooting
+
+**Check Android logs:**
+```bash
+adb logcat | grep SelfHostableChat
+adb logcat | grep nodejs-mobile
+```
+
+**Rebuild from scratch:**
+```bash
+rm -rf android/app/src/main/nodejs-assets/nodejs-project
+bun run mobile
+```
+
+For detailed information, see [`CAPACITOR_IMPLEMENTATION.md`](./CAPACITOR_IMPLEMENTATION.md).
+
+
 ## 📁 Project Structure
 
 ```
@@ -231,6 +317,23 @@ electron/               # Electron desktop app
 ├── main.js             # Main process (server + window)
 ├── preload.js          # Preload script for security
 └── README.md           # Build instructions
+capacitor/              # Capacitor mobile app
+├── MainActivity.java   # Android activity (template)
+├── README.md           # Build instructions
+├── server.ts           # Server startup utilities
+└── plugin/             # Capacitor plugin for server control
+    ├── index.ts        # Plugin interface
+    └── web.ts          # Web implementation
+android/                # Android project (generated)
+├── app/
+│   └── src/main/
+│       ├── java/com/selfhostablechat/app/
+│       │   └── MainActivity.java  # App entry point
+│       └── nodejs-assets/         # Bundled server (created during build)
+│           └── nodejs-project/    # Node.js server files
+└── build.gradle        # Android build config
+scripts/                # Build scripts
+└── build-capacitor.js  # Capacitor/Android build script
 static/                 # Static assets
 ├── webaicat512.webp    # Desktop app icon (512x512)
 ├── webaicat256.webp    # Desktop app icon (256x256)
@@ -335,6 +438,8 @@ bun run desktop:build
 - [x] Encrypted API key storage
 - [x] Docker support for easy self-hosting
 - [x] Electron desktop app (Linux, Windows, macOS)
+- [x] Capacitor Android app with bundled server
+- [ ] iOS app support (Capacitor)
 - [ ] Advanced analytics charts
 - [ ] Export/import conversations
 - [ ] Custom model configurations

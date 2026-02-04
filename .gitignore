@@ -13,6 +13,10 @@ vite.config.ts.timestamp-*
 dist-electron/
 squashfs-root/
 
+# Android/Capacitor build output
+android/app/src/main/nodejs-assets/nodejs-project/
+temp-node-android/
+
 # OS
 .DS_Store
 Thumbs.db

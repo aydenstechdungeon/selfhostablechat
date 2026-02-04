@@ -17,9 +17,17 @@
 		"electron:build:linux": "npm run build && electron-builder --linux",
 		"electron:build:win": "npm run build && electron-builder --win",
 		"desktop": "npm run electron:dev",
-		"desktop:build": "npm run electron:build"
+		"desktop:build": "npm run electron:build",
+		"capacitor:build": "node scripts/build-capacitor.js",
+		"capacitor:open": "bunx cap open android",
+		"capacitor:sync": "bunx cap sync android",
+		"mobile": "npm run capacitor:build",
+		"mobile:open": "npm run capacitor:open"
 	},
 	"devDependencies": {
+		"@capacitor/android": "^8.0.2",
+		"@capacitor/cli": "^8.0.2",
+		"@capacitor/core": "^8.0.2",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/adapter-node": "^5.2.12",
 		"@sveltejs/enhanced-img": "^0.10.0",
@@ -36,6 +44,7 @@
 		"svelte": "^5.48.2",
 		"svelte-check": "^4.3.5",
 		"tailwindcss": "^4.1.18",
+		"tar": "^7.5.7",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1"
 	},

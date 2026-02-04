@@ -54,3 +54,9 @@ electron
 electron-builder.json
 dist-electron
 squashfs-root
+
+# Mobile apps (built separately)
+android
+capacitor
+capacitor.config.ts
+CAPACITOR_IMPLEMENTATION.md

@@ -27,8 +27,29 @@ function createWindow() {
         title: 'SelfHostableChat'
     });
 
-    // Load the app
-    mainWindow.loadURL(`http://localhost:${SERVER_PORT}`);
+    // Retry loading until server is ready
+    const loadWithRetry = async () => {
+        const maxRetries = 30;
+        let retries = 0;
+
+        while (retries < maxRetries && mainWindow) {
+            try {
+                await mainWindow.loadURL(`http://localhost:${SERVER_PORT}`);
+                console.log('Successfully connected to server');
+                break;
+            } catch (err) {
+                retries++;
+                if (retries < maxRetries) {
+                    console.log(`Waiting for server... (${retries}/${maxRetries})`);
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } else {
+                    console.error('Failed to connect to server after max retries');
+                }
+            }
+        }
+    };
+
+    loadWithRetry();
 
     mainWindow.on('closed', () => {
         mainWindow = null;
@@ -95,14 +116,14 @@ function stopServer() {
     }
 }
 
-app.whenReady().then(async () => {
-    try {
-        await startServer();
-        createWindow();
-    } catch (err) {
-        console.error('Failed to start application:', err);
+app.whenReady().then(() => {
+    // Start server and window simultaneously
+    startServer().catch(err => {
+        console.error('Failed to start server:', err);
         app.quit();
-    }
+    });
+
+    createWindow();
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
