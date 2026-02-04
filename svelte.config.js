@@ -1,5 +1,8 @@
 import adapter from '@sveltejs/adapter-node';
 
+// Disable prerendering in Docker builds - app needs runtime database
+const isPrerenderEnabled = process.env.SVELTEKIT_ADAPTER_NODE_PRERENDER !== 'false';
+
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
 	kit: {
@@ -11,7 +14,7 @@ const config = {
 		serviceWorker: {
 			register: true
 		},
-		prerender: {
+		prerender: isPrerenderEnabled ? {
 			entries: [
 				'*',
 				'/chat/new',
@@ -28,6 +31,9 @@ const config = {
 				throw new Error(message);
 			},
 			handleMissingId: 'ignore'
+		} : {
+			// Prerender disabled - no entries to prerender
+			entries: []
 		}
 	}
 };

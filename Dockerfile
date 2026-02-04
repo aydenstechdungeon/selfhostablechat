@@ -17,6 +17,8 @@ COPY . .
 
 ENV NODE_ENV=production
 ENV NODE_OPTIONS="--max-old-space-size=3072"
+# Disable prerendering during Docker build - routes need runtime database
+ENV SVELTEKIT_ADAPTER_NODE_PRERENDER=false
 RUN bun x svelte-kit sync
 RUN bun run build
 
