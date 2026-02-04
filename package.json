@@ -43,6 +43,7 @@
 		"@icons-pack/svelte-simple-icons": "^6.5.0",
 		"@kilocode/cli": "^0.26.1",
 		"@selemondev/svgl-svelte": "^2.1.1",
+		"@tanstack/svelte-query": "^6.0.18",
 		"bits-ui": "^2.15.5",
 		"chart.js": "^4.5.1",
 		"date-fns": "^4.1.0",
@@ -52,6 +53,7 @@
 		"layerchart": "^1.0.13",
 		"lucide-svelte": "^0.563.0",
 		"marked": "^17.0.1",
+		"neverthrow": "^8.2.0",
 		"runed": "^0.37.1",
 		"sveltekit-superforms": "^2.29.1",
 		"zod": "^4.3.6"
