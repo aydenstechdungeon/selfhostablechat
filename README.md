@@ -124,40 +124,79 @@ ports:
   - "8080:3420"
 ```
 
-## 🖥️ Desktop App (Tauri)
+## 🖥️ Desktop App (Electron)
 
-Build a native desktop application using Tauri.
+Build a native desktop application for Linux, Windows, and macOS using Electron.
 
 ### Prerequisites
 
-- [Rust](https://www.rust-lang.org/tools/install)
-- Bun (for the frontend build)
+- [Bun](https://bun.sh) runtime
+- For Linux AppImage: FUSE2 (optional, see below)
 
 ### Development
 
 ```bash
-# Run the desktop app in development mode
+# Run two terminals:
+
+# Terminal 1: Start the dev server
+PORT=3421 bun run dev
+
+# Terminal 2: Launch Electron
 bun run desktop
 # or
-bun run tauri:dev
+bun run electron:dev
 ```
 
 ### Build
 
 ```bash
-# Build the desktop app for production
-bun run desktop:build
-# or
-bun run tauri:build
+# Build for Linux (AppImage)
+bun run electron:build:linux
+
+# Build for Windows (NSIS installer)
+bun run electron:build:win
+
+# Build for all platforms
+bun run electron:build
 ```
 
-Built applications will be in `src-tauri/target/release/bundle/`.
+Built applications will be in `dist-electron/`.
+
+### Running the Linux AppImage
+
+**Option 1: Without FUSE (easiest)**
+```bash
+./dist-electron/SelfHostableChat-*.AppImage --appimage-extract-and-run
+```
+
+**Option 2: With FUSE2** (install once)
+```bash
+# Arch/CachyOS
+sudo pacman -S fuse2
+
+# Ubuntu/Debian
+sudo apt install libfuse2
+
+# Fedora
+dnf install fuse fuse-libs
+
+# Then run normally
+./dist-electron/SelfHostableChat-*.AppImage
+```
 
 ### Platform Support
 
-- **Windows**: `.msi` installer and `.exe`
-- **macOS**: `.dmg` and `.app`
-- **Linux**: `.deb`, `.rpm`, `.AppImage`
+- **Linux**: `.AppImage` (portable, self-contained)
+- **Windows**: `.exe` with NSIS installer
+- **macOS**: `.dmg` image
+
+### Desktop App Features
+
+- **No menu bar**: Clean, distraction-free interface
+- **Bundled server**: Offline-capable (except AI API calls)
+- **WebAI Cat icon**: Using `webaicat512.webp` from static assets
+- **Port 3421**: Default server port for desktop app
+- **Client-side storage**: All data stored locally (IndexedDB/localStorage)
 
 ## 📁 Project Structure
 
@@ -188,11 +227,14 @@ src/
 │   │   ├── dashboard/  # Analytics dashboard
 │   │   └── settings/   # User settings
 │   └── +page.svelte    # Landing page
-src-tauri/              # Tauri desktop app configuration
-├── src/                # Rust source code
-├── icons/              # App icons
-├── Cargo.toml          # Rust dependencies
-└── tauri.conf.json     # Tauri configuration
+electron/               # Electron desktop app
+├── main.js             # Main process (server + window)
+├── preload.js          # Preload script for security
+└── README.md           # Build instructions
+static/                 # Static assets
+├── webaicat512.webp    # Desktop app icon (512x512)
+├── webaicat256.webp    # Desktop app icon (256x256)
+└── webaicat128.webp    # Desktop app icon (128x128)
 ```
 
 ## 🔧 Configuration
@@ -254,22 +296,6 @@ OPENROUTER_API_URL=https://openrouter.ai/api/v1
 
 ## 🛠️ Development
 
-### Database Commands
-
-```bash
-# Generate migration files
-bun run db:generate
-
-# Apply migrations
-bun run db:migrate
-
-# Push schema changes (development)
-bun run db:push
-
-# Open Drizzle Studio (database GUI)
-bun run db:studio
-```
-
 ### Type Checking
 
 ```bash
@@ -300,24 +326,6 @@ bun run desktop:build
 - **Rate Limiting**: Built-in rate limiting (60 req/min per user, 100 global)
 - **Input Validation**: All inputs validated with Zod schemas
 
-## 📊 Database Schema
-
-### Tables
-
-- **users**: User accounts and OAuth data
-- **api_keys**: Encrypted OpenRouter API keys
-- **chats**: Chat sessions with titles and modes
-- **messages**: Individual messages in conversations
-- **message_stats**: Token usage, cost, and latency metrics
-
-### Indexes
-
-Optimized queries with indexes on:
-- User lookups
-- Chat retrieval by user
-- Message ordering
-- Stats aggregation by timestamp and model
-
 ## 🎯 Roadmap
 
 - [x] Core chat functionality
@@ -326,7 +334,7 @@ Optimized queries with indexes on:
 - [x] Stats tracking and dashboard
 - [x] Encrypted API key storage
 - [x] Docker support for easy self-hosting
-- [x] Tauri desktop app
+- [x] Electron desktop app (Linux, Windows, macOS)
 - [ ] Advanced analytics charts
 - [ ] Export/import conversations
 - [ ] Custom model configurations
@@ -346,8 +354,7 @@ MIT License - feel free to use this project for personal or commercial purposes.
 - Built with [SvelteKit](https://kit.svelte.dev)
 - Powered by [OpenRouter](https://openrouter.ai)
 - UI components from [Bits UI](https://bits-ui.com)
-- Database with [Drizzle ORM](https://orm.drizzle.team)
-- Desktop app with [Tauri](https://tauri.app)
+- Desktop app with [Electron](https://www.electronjs.org)
 
 ## 💬 Support
 

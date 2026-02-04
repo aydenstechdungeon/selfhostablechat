@@ -92,13 +92,13 @@
 </script>
 
 <header
-	class="chat-header relative flex items-center h-16 px-6 flex-shrink-0 transition-colors duration-200 z-50"
+	class="chat-header relative flex items-center h-14 md:h-16 px-3 md:px-6 flex-shrink-0 transition-colors duration-200 z-50"
 	style:background-color={theme === "light" ? "#f8f9fa" : "#1a1f2e"}
 	style:border-bottom="1px solid {theme === 'light' ? '#e5e7eb' : '#2d3748'}"
 >
-	<div class="header-left flex items-center gap-4 flex-1 min-w-0">
+	<div class="header-left flex items-center gap-2 md:gap-4 flex-1 min-w-0">
 		<button
-			class="sidebar-toggle p-1 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 flex-shrink-0"
+			class="sidebar-toggle p-2 md:p-1 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 flex-shrink-0 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
 			style:color={theme === "light" ? "#1f2937" : "#e2e8f0"}
 			style:hover:background-color={theme === "light"
 				? "#e5e7eb"
@@ -117,7 +117,7 @@
 		{#if isEditingTitle}
 			<input
 				type="text"
-				class="chat-title px-3 py-1.5 text-base font-semibold bg-transparent rounded-md focus:outline-none transition-colors min-w-0"
+				class="chat-title px-2 md:px-3 py-1.5 text-sm md:text-base font-semibold bg-transparent rounded-md focus:outline-none transition-colors min-w-0 flex-1"
 				style:color={theme === "light" ? "#1f2937" : "#e2e8f0"}
 				style:border="1px solid {theme === 'light'
 					? '#d1d5db'
@@ -125,18 +125,18 @@
 				style:focus:border-color={theme === "light"
 					? "#3b82f6"
 					: "#4299e1"}
-				style:max-width="max(200px, calc(50vw - 120px))"
+				style:max-width="calc(100vw - 200px)"
 				bind:value={chatTitle}
 				onblur={saveChatTitle}
 				onkeydown={handleTitleKeydown}
 			/>
 		{:else}
 			<button
-				class="chat-title text-base font-semibold transition-colors text-left overflow-hidden whitespace-nowrap min-w-0"
+				class="chat-title text-sm md:text-base font-semibold transition-colors text-left overflow-hidden whitespace-nowrap min-w-0 flex-1"
 				style:color={theme === "light" ? "#1f2937" : "#e2e8f0"}
 				style:hover:color={theme === "light" ? "#3b82f6" : "#4299e1"}
 				style:text-overflow="ellipsis"
-				style:max-width="max(200px, calc(50vw - 120px))"
+				style:max-width="calc(100vw - 200px)"
 				onclick={() => (isEditingTitle = true)}
 			>
 				{chatTitle}
@@ -144,7 +144,9 @@
 		{/if}
 	</div>
 
-	<div class="header-center absolute left-1/2 -translate-x-1/2">
+	<div
+		class="header-center absolute left-1/2 -translate-x-1/2 hidden md:flex"
+	>
 		<ModelSelector />
 	</div>
 
@@ -152,7 +154,7 @@
 		class="header-right flex items-center gap-2 relative flex-1 justify-end"
 	>
 		<button
-			class="p-2 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
+			class="p-2 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 min-w-[44px] min-h-[44px] md:min-w-0 md:min-h-0 flex items-center justify-center"
 			style:color={theme === "light" ? "#1f2937" : "#e2e8f0"}
 			style:hover:background-color={theme === "light"
 				? "#e5e7eb"

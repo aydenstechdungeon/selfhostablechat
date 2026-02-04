@@ -1,0 +1,51 @@
+{
+    "appId": "com.selfhostablechat.app",
+    "productName": "SelfHostableChat",
+    "directories": {
+        "output": "dist-electron",
+        "buildResources": "electron/resources"
+    },
+    "files": [
+        "electron/**/*",
+        "static/**/*",
+        "package.json",
+        "node_modules/**/*"
+    ],
+    "extraResources": [
+        {
+            "from": "build",
+            "to": "server",
+            "filter": [
+                "**/*"
+            ]
+        }
+    ],
+    "linux": {
+        "target": [
+            "AppImage"
+        ],
+        "category": "Utility",
+        "icon": "static/icon.png",
+        "maintainer": "SelfHostableChat"
+    },
+    "win": {
+        "target": [
+            "nsis",
+            "portable"
+        ],
+        "icon": "static/icon.ico"
+    },
+    "nsis": {
+        "oneClick": false,
+        "allowToChangeInstallationDirectory": true,
+        "createDesktopShortcut": true,
+        "createStartMenuShortcut": true
+    },
+    "mac": {
+        "target": [
+            "dmg"
+        ],
+        "category": "public.app-category.productivity",
+        "icon": "static/icon.png"
+    }
+}

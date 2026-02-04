@@ -13,6 +13,7 @@
 	import { streamingStore } from "$lib/stores/streamingStore";
 	import ChatList from "./ChatList.svelte";
 	import ChatFilters from "./ChatFilters.svelte";
+	import MobileModelSelector from "./MobileModelSelector.svelte";
 
 	let { collapsed = false } = $props();
 
@@ -98,6 +99,12 @@
 	</div>
 
 	{#if !collapsed}
+		<!-- Model Selector - Mobile Only -->
+		<div class="px-4 py-3 border-b md:hidden" style:border-color={border}>
+			<MobileModelSelector />
+		</div>
+
+		<!-- Search Bar -->
 		<div
 			class="sidebar-search px-4 py-3 border-b relative"
 			style:border-color={border}

@@ -1,21 +1,31 @@
+.DS_Store
 node_modules
-
-# Output
-.output
-.vercel
-.netlify
-.wrangler
-/.svelte-kit
 /build
+/.svelte-kit
+/package
+.env
+.env.*
+!.env.example
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Electron build output
+dist-electron/
+squashfs-root/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Env
-.env
-.env.*
-!.env.example
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+.vercel
+.output
 !.env.test
 
 # Vite

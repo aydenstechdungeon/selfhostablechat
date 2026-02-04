@@ -331,7 +331,7 @@
 </script>
 
 <div
-	class="message-list-container flex-1 overflow-y-auto px-6 py-6 scroll-smooth min-h-0"
+	class="message-list-container flex-1 overflow-y-auto px-3 md:px-6 py-4 md:py-6 scroll-smooth min-h-0"
 	bind:this={messageContainer}
 	onscroll={handleScroll}
 >
@@ -397,9 +397,9 @@
 
 {#if showScrollButton}
 	<button
-		class="scroll-to-bottom fixed bottom-24 right-6 w-12 h-12 rounded-full bg-[#4299e1] text-white shadow-2xl flex items-center justify-center hover:bg-[#3182ce] hover:scale-110 active:scale-95 transition-all duration-200 z-10 animate-bounce-in"
+		class="scroll-to-bottom fixed bottom-20 md:bottom-24 right-4 md:right-6 w-11 h-11 md:w-12 md:h-12 rounded-full bg-[#4299e1] text-white shadow-2xl flex items-center justify-center hover:bg-[#3182ce] hover:scale-110 active:scale-95 transition-all duration-200 z-10 animate-bounce-in"
 		onclick={scrollToBottom}
 	>
-		<ArrowDown size={20} />
+		<ArrowDown size={18} class="md:size-[20px]" />
 	</button>
 {/if}
