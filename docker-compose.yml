@@ -3,6 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Increase memory for build process to prevent OOM
+      shm_size: '2gb'
+    deploy:
+      resources:
+        limits:
+          memory: 4G
     container_name: selfhostablechat
     # Use host networking for rootless podman (avoids slirp4netns requirement)
     network_mode: host

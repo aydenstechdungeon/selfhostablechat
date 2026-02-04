@@ -47,6 +47,9 @@ Dockerfile
 docker-compose.yml
 .dockerignore
 
-# Tauri (built separately)
+# Desktop apps (built separately)
 src-tauri/target
 src-tauri/gen
+electron
+electron-builder.json
+dist-electron
