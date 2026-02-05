@@ -8,6 +8,48 @@
   h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
   }
+
+  /* Prevent text selection on UI chrome */
+  button,
+  nav,
+  aside,
+  header,
+  [role="navigation"],
+  [role="complementary"],
+  [role="banner"],
+  [class*="sidebar"],
+  [class*="modal"],
+  [class*="dialog"],
+  [class*="header"],
+  [class*="toolbar"],
+  [class*="menu"],
+  [class*="tab"],
+  [class*="badge"],
+  [class*="chip"],
+  .empty-state,
+  .placeholder-text {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Ensure content areas remain selectable */
+  [role="main"],
+  [contenteditable],
+  pre,
+  code,
+  .message-content,
+  .chat-message,
+  .selectable {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  /* Input elements should always be selectable */
+  input,
+  textarea {
+    user-select: text;
+    -webkit-user-select: text;
+  }
   
   ::-webkit-scrollbar {
     width: 0.5rem;

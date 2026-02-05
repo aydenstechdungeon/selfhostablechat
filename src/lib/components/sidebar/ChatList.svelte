@@ -269,11 +269,17 @@
   onscroll={handleSidebarScroll}
 >
   {#if isLoading}
-    <div class="text-center py-8 text-sm" style:color={textSecondary}>
+    <div
+      class="text-center py-8 text-sm select-none"
+      style:color={textSecondary}
+    >
       Loading chats...
     </div>
   {:else if filteredChats.length === 0}
-    <div class="text-center py-8 text-sm" style:color={textSecondary}>
+    <div
+      class="text-center py-8 text-sm select-none"
+      style:color={textSecondary}
+    >
       {#if searchQuery || filters.dateRange !== "all" || filters.minCost !== null || filters.maxCost !== null || filters.selectedModels.length > 0}
         No chats match your filters
       {:else}

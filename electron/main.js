@@ -12,7 +12,7 @@ let serverProcess = null;
 let mainWindow = null;
 
 function createWindow() {
-    // Remove the menu bar
+    // Remove the menu bar but keep context menu for copy/paste
     Menu.setApplicationMenu(null);
 
     mainWindow = new BrowserWindow({
@@ -25,6 +25,18 @@ function createWindow() {
         },
         icon: path.join(__dirname, '../static/icon.ico'),
         title: 'SelfHostableChat'
+    });
+
+    // Enable right-click context menu for copy/paste
+    mainWindow.webContents.on('context-menu', (event, params) => {
+        const contextMenu = Menu.buildFromTemplate([
+            { label: 'Cut', role: 'cut', enabled: params.editFlags.canCut },
+            { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
+            { label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
+            { type: 'separator' },
+            { label: 'Select All', role: 'selectAll' }
+        ]);
+        contextMenu.popup();
     });
 
     // Retry loading until server is ready

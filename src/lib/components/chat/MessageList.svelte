@@ -338,10 +338,12 @@
 	{#if messages.length === 0}
 		<div class="flex items-center justify-center h-full">
 			<div class="text-center animate-fade-in-up">
-				<h2 class="text-2xl font-bold text-[#e2e8f0] mb-2">
+				<h2 class="text-2xl font-bold text-[#e2e8f0] mb-2 select-none">
 					Start a conversation
 				</h2>
-				<p class="text-[#718096]">Send a message to begin chatting</p>
+				<p class="text-[#718096] select-none">
+					Send a message to begin chatting
+				</p>
 			</div>
 		</div>
 	{:else}
