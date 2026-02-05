@@ -117,7 +117,7 @@
 		{#if isEditingTitle}
 			<input
 				type="text"
-				class="chat-title px-2 md:px-3 py-1.5 text-sm md:text-base font-semibold bg-transparent rounded-md focus:outline-none transition-colors min-w-0 flex-1"
+				class="chat-title px-2 md:px-3 py-1.5 text-sm md:text-base font-semibold bg-transparent rounded-md focus:outline-none max-w-[26vw] transition-colors min-w-0 flex-1"
 				style:color={theme === "light" ? "#1f2937" : "#e2e8f0"}
 				style:border="1px solid {theme === 'light'
 					? '#d1d5db'
@@ -125,18 +125,16 @@
 				style:focus:border-color={theme === "light"
 					? "#3b82f6"
 					: "#4299e1"}
-				style:max-width="calc(100vw - 200px)"
 				bind:value={chatTitle}
 				onblur={saveChatTitle}
 				onkeydown={handleTitleKeydown}
 			/>
 		{:else}
 			<button
-				class="chat-title text-sm md:text-base font-semibold transition-colors text-left overflow-hidden whitespace-nowrap min-w-0 flex-1"
+				class="chat-title text-sm md:text-base font-semibold transition-colors text-left overflow-hidden whitespace-nowrap min-w-0 max-w-[26vw] flex-1"
 				style:color={theme === "light" ? "#1f2937" : "#e2e8f0"}
 				style:hover:color={theme === "light" ? "#3b82f6" : "#4299e1"}
 				style:text-overflow="ellipsis"
-				style:max-width="calc(100vw - 200px)"
 				onclick={() => (isEditingTitle = true)}
 			>
 				{chatTitle}
