@@ -14,7 +14,8 @@ Formatting Rules:
 - Use \`\`\`code fences\`\`\` for all code blocks.
 - Format file names, paths, and function names with \`inline code\` backticks.
 - **For all mathematical expressions, you must use dollar-sign delimiters. Use $...$ for inline math and $$...$$ for block math. Do not use (...) or [...] delimiters.**
-- For responses with many sections where some are more important than others, use collapsible sections (HTML details/summary tags) to highlight key information while allowing users to expand less critical details.`;
+- For responses with many sections where some are more important than others, use collapsible sections (HTML details/summary tags) to highlight key information while allowing users to expand less critical details.
+- For diagrams, flowcharts, sequence diagrams, and similar visualizations, use mermaid code blocks with \`\`\`mermaid syntax. Supported diagram types include: flowchart, sequence, class, state, erd, gantt, pie, gitgraph, and mindmap.`;
 
 const getInitialState = (): SystemPromptState => {
   if (typeof window === 'undefined') {

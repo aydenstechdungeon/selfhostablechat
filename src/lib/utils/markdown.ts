@@ -12,9 +12,36 @@ marked.use({
 const renderer = new marked.Renderer();
 
 renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
+	const codeId = `code-${Math.random().toString(36).substring(2, 11)}`;
+
+	// Handle mermaid diagrams specially
+	if (lang === 'mermaid') {
+		const escapedCode = escapeHtml(text);
+		return `<div class="mermaid-block my-4 rounded-lg overflow-hidden bg-[#1a1f2e] border border-[#2d3748]" id="${codeId}" data-mermaid-code="${encodeURIComponent(text)}">
+    <div class="mermaid-header flex items-center justify-between px-4 py-2 bg-[#0f1419] border-b border-[#2d3748]">
+      <span class="text-xs text-[#a0aec0] font-mono">mermaid</span>
+      <div class="flex items-center gap-1 bg-[#1a1f2e] rounded-lg p-1">
+        <button class="mermaid-tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 bg-[#4299e1] text-white" data-tab="diagram" title="View diagram">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          Diagram
+        </button>
+        <button class="mermaid-tab-btn flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 text-[#a0aec0] hover:text-[#e2e8f0] hover:bg-[#2d3748]" data-tab="raw" title="View raw code">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Raw
+        </button>
+      </div>
+    </div>
+    <div class="mermaid-content">
+      <div class="mermaid-diagram p-4 flex items-center justify-center min-h-[100px] overflow-x-auto" data-initialized="false">
+        <div class="text-[#a0aec0] text-sm">Loading diagram...</div>
+      </div>
+      <pre class="mermaid-raw m-0 p-4 overflow-x-auto hidden"><code class="text-sm text-[#e2e8f0] font-mono whitespace-pre-wrap">${escapedCode}</code></pre>
+    </div>
+  </div>`;
+	}
+
 	const validLanguage = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
 	const highlighted = hljs.highlight(text, { language: validLanguage }).value;
-	const codeId = `code-${Math.random().toString(36).substring(2, 11)}`;
 
 	return `<div class="code-block relative group my-4 rounded-lg overflow-hidden bg-[#1a1f2e] border border-[#2d3748]" id="${codeId}">
     <div class="code-header flex items-center justify-between px-4 py-2 bg-[#0f1419] border-b border-[#2d3748]">
@@ -186,7 +213,7 @@ export function parseMarkdown(content: string, isStreaming: boolean = false): st
 				const rawHtml = marked.parse(content, { async: false }) as string;
 				const sanitized = typeof window !== 'undefined'
 					? DOMPurify.sanitize(rawHtml, {
-						ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt'],
+						ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt', 'data-mermaid-code', 'data-tab', 'data-initialized'],
 						ADD_TAGS: ['iframe', 'button'],
 					})
 					: rawHtml; // Fallback for SSR
@@ -207,7 +234,7 @@ export function parseMarkdown(content: string, isStreaming: boolean = false): st
 					const rawHtml = marked.parse(content, { async: false }) as string;
 					const sanitized = typeof window !== 'undefined'
 						? DOMPurify.sanitize(rawHtml, {
-							ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt'],
+							ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt', 'data-mermaid-code', 'data-tab', 'data-initialized'],
 							ADD_TAGS: ['iframe', 'button'],
 						})
 						: rawHtml;
@@ -231,7 +258,7 @@ export function parseMarkdown(content: string, isStreaming: boolean = false): st
 		// Sanitize HTML
 		const sanitized = typeof window !== 'undefined'
 			? DOMPurify.sanitize(rawHtml, {
-				ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt'],
+				ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt', 'data-mermaid-code', 'data-tab', 'data-initialized'],
 				ADD_TAGS: ['iframe', 'button'], // Allow these for custom renderers
 			})
 			: rawHtml;
@@ -377,5 +404,94 @@ export function initCodeCopyButtons(container: HTMLElement) {
 				console.error('Failed to download:', err);
 			}
 		});
+	});
+
+	// Handle mermaid diagrams
+	initMermaidDiagrams(container);
+}
+
+// Lazy-loaded mermaid instance
+let mermaidInstance: typeof import('mermaid').default | null = null;
+
+// Initialize mermaid diagrams
+async function initMermaidDiagrams(container: HTMLElement) {
+	const mermaidBlocks = container.querySelectorAll('.mermaid-block');
+
+	if (mermaidBlocks.length === 0) return;
+
+	// Lazy load mermaid only when needed
+	if (!mermaidInstance) {
+		try {
+			const mermaidModule = await import('mermaid');
+			mermaidInstance = mermaidModule.default;
+			mermaidInstance.initialize({
+				startOnLoad: false,
+				theme: 'dark',
+				securityLevel: 'loose',
+				fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+			});
+		} catch (err) {
+			console.error('Failed to load mermaid:', err);
+			// Show error in all mermaid blocks
+			mermaidBlocks.forEach(block => {
+				const diagramDiv = block.querySelector('.mermaid-diagram');
+				if (diagramDiv) {
+					diagramDiv.innerHTML = '<span class="text-red-400 text-sm">Failed to load diagram renderer</span>';
+				}
+			});
+			return;
+		}
+	}
+
+	mermaidBlocks.forEach(async (block) => {
+		// Skip if already initialized
+		if (block.hasAttribute('data-initialized')) return;
+		block.setAttribute('data-initialized', 'true');
+
+		const diagramDiv = block.querySelector('.mermaid-diagram') as HTMLElement;
+		const rawPre = block.querySelector('.mermaid-raw') as HTMLElement;
+		const tabButtons = block.querySelectorAll('.mermaid-tab-btn');
+		const mermaidCode = decodeURIComponent(block.getAttribute('data-mermaid-code') || '');
+
+		// Tab switching
+		tabButtons.forEach(btn => {
+			btn.addEventListener('click', (e) => {
+				const target = e.currentTarget as HTMLElement;
+				const tab = target.getAttribute('data-tab');
+
+				// Update button styles
+				tabButtons.forEach(b => {
+					if (b.getAttribute('data-tab') === tab) {
+						b.classList.add('bg-[#4299e1]', 'text-white');
+						b.classList.remove('text-[#a0aec0]', 'hover:text-[#e2e8f0]', 'hover:bg-[#2d3748]');
+					} else {
+						b.classList.remove('bg-[#4299e1]', 'text-white');
+						b.classList.add('text-[#a0aec0]', 'hover:text-[#e2e8f0]', 'hover:bg-[#2d3748]');
+					}
+				});
+
+				// Toggle visibility
+				if (tab === 'diagram') {
+					diagramDiv.classList.remove('hidden');
+					rawPre.classList.add('hidden');
+				} else {
+					diagramDiv.classList.add('hidden');
+					rawPre.classList.remove('hidden');
+				}
+			});
+		});
+
+		// Render diagram
+		if (diagramDiv && mermaidCode && diagramDiv.getAttribute('data-initialized') !== 'rendered' && mermaidInstance) {
+			try {
+				const id = `mermaid-${Math.random().toString(36).substring(2, 11)}`;
+				const { svg } = await mermaidInstance.render(id, mermaidCode);
+				diagramDiv.innerHTML = svg;
+				diagramDiv.setAttribute('data-initialized', 'rendered');
+			} catch (err) {
+				console.error('Failed to render mermaid diagram:', err);
+				diagramDiv.innerHTML = '<span class="text-red-400 text-sm">Failed to render diagram. Check syntax.</span>';
+			}
+		}
 	});
 }
