@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import hljs from 'highlight.js';
+import DOMPurify from 'dompurify';
 
 // Configure marked with syntax highlighting
 marked.use({
@@ -45,10 +46,10 @@ renderer.table = (token: any) => {
 	const header = token.header.map((cell: any) => cell.text || cell);
 	const rows = token.rows.map((row: any) => row.map((cell: any) => cell.text || cell));
 
-	const headerHtml = header.map((cell: string) => `<th class="px-4 py-3 text-left text-sm font-semibold bg-[#0f1419] text-[#e2e8f0] border-b border-[#2d3748]">${escapeHtml(cell)}</th>`).join('');
+	const headerHtml = header.map((cell: string) => `<th class="px-4 py-3 select-text text-left text-sm font-semibold bg-[#0f1419] text-[#e2e8f0] border-b border-[#2d3748]">${escapeHtml(cell)}</th>`).join('');
 	const rowsHtml = rows.map((row: string[], i: number) => {
 		const isLastRow = i === rows.length - 1;
-		const cells = row.map((cell: string) => `<td class="px-4 py-3 text-sm text-[#e2e8f0] ${isLastRow ? '' : 'border-b border-[#2d3748]/50'}">${escapeHtml(cell)}</td>`).join('');
+		const cells = row.map((cell: string) => `<td class="px-4 py-3 select-text text-sm text-[#e2e8f0] ${isLastRow ? '' : 'border-b border-[#2d3748]/50'}">${escapeHtml(cell)}</td>`).join('');
 		const bgClass = i % 2 === 0 ? 'bg-[#1a1f2e]' : 'bg-[#1a1f2e]/50';
 		return `<tr class="${bgClass} hover:bg-[#2d3748]/30 transition-colors">${cells}</tr>`;
 	}).join('');
@@ -68,17 +69,17 @@ renderer.table = (token: any) => {
 renderer.image = ({ href, text }: { href: string; text: string }) => {
 	// Validate and sanitize the URL
 	let safeHref = href;
-	
+
 	// Only allow http/https/data:image URLs
-	const isValidUrl = href.startsWith('data:image/') || 
-	                   href.startsWith('https://') || 
-	                   href.startsWith('http://');
-	
+	const isValidUrl = href.startsWith('data:image/') ||
+		href.startsWith('https://') ||
+		href.startsWith('http://');
+
 	if (!isValidUrl) {
 		console.warn('Blocked potentially unsafe image URL:', href.substring(0, 50));
 		return `<span class="text-red-400">[Blocked unsafe image]</span>`;
 	}
-	
+
 	// Create a clickable image that will trigger the image modal via event delegation
 	// Uses lazy loading with low fetch priority for off-screen images
 	return `<button 
@@ -164,21 +165,37 @@ function setCachedMarkdown(content: string, html: string): void {
 // Cache for streaming content - only cache complete or substantial content
 const streamingContentCache = new Set<string>();
 
+// Initialize DOMPurify hook once
+if (typeof window !== 'undefined') {
+	DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+		if (node.tagName === 'A' && node.hasAttribute('href')) {
+			node.setAttribute('target', '_blank');
+			node.setAttribute('rel', 'noopener noreferrer');
+		}
+	});
+}
+
 export function parseMarkdown(content: string, isStreaming: boolean = false): string {
 	if (!content) return '';
-	
+
 	// For streaming content, only cache if it's substantial or contains markdown structures
 	if (isStreaming) {
 		// Skip caching for very short streaming content (< 50 chars)
 		if (content.length < 50) {
 			try {
 				const rawHtml = marked.parse(content, { async: false }) as string;
-				return wrapTablesInContainers(rawHtml);
+				const sanitized = typeof window !== 'undefined'
+					? DOMPurify.sanitize(rawHtml, {
+						ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt'],
+						ADD_TAGS: ['iframe', 'button'],
+					})
+					: rawHtml; // Fallback for SSR
+				return wrapTablesInContainers(sanitized);
 			} catch (error) {
 				return escapeHtml(content);
 			}
 		}
-		
+
 		// Only cache if we've seen this content before (re-render) or it has markdown structures
 		const cacheKey = hashContent(content);
 		if (!streamingContentCache.has(cacheKey)) {
@@ -188,25 +205,40 @@ export function parseMarkdown(content: string, isStreaming: boolean = false): st
 			if (!hasMarkdown && content.length < 200) {
 				try {
 					const rawHtml = marked.parse(content, { async: false }) as string;
-					return wrapTablesInContainers(rawHtml);
+					const sanitized = typeof window !== 'undefined'
+						? DOMPurify.sanitize(rawHtml, {
+							ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt'],
+							ADD_TAGS: ['iframe', 'button'],
+						})
+						: rawHtml;
+					return wrapTablesInContainers(sanitized);
 				} catch (error) {
 					return escapeHtml(content);
 				}
 			}
 		}
 	}
-	
+
 	// Check cache first
 	const cached = getCachedMarkdown(content);
 	if (cached !== undefined) {
 		return cached;
 	}
-	
+
 	try {
 		const rawHtml = marked.parse(content, { async: false }) as string;
+
+		// Sanitize HTML
+		const sanitized = typeof window !== 'undefined'
+			? DOMPurify.sanitize(rawHtml, {
+				ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt'],
+				ADD_TAGS: ['iframe', 'button'], // Allow these for custom renderers
+			})
+			: rawHtml;
+
 		// Wrap tables in scrollable containers
-		const processedHtml = wrapTablesInContainers(rawHtml);
-		
+		const processedHtml = wrapTablesInContainers(sanitized);
+
 		// Cache the result
 		setCachedMarkdown(content, processedHtml);
 		return processedHtml;

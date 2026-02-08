@@ -472,22 +472,44 @@ class ChatDatabase {
 
   async updateChatStats(
     chatId: string,
-    stats: { messageCount: number; totalCost: number; totalTokens: number; models?: string[] }
-  ): Promise<void> {
-    const chat = await this.getChat(chatId);
-    if (chat) {
-      chat.messageCount = stats.messageCount;
-      chat.totalCost = stats.totalCost;
-      chat.totalTokens = stats.totalTokens;
-      if (stats.models) {
-        // Merge new models with existing ones, keeping unique values
-        // Handle case where chat.models might be undefined (old data)
-        const existingModels = chat.models || [];
-        chat.models = [...new Set([...existingModels, ...stats.models])];
-      }
-      chat.updatedAt = new Date();
-      await this.saveChat(chat);
+    stats: {
+      messageCountIncrement: number;
+      costIncrement: number;
+      tokensIncrement: number;
+      models?: string[]
     }
+  ): Promise<void> {
+    if (!this.db) await this.init();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['chats'], 'readwrite');
+      const store = transaction.objectStore('chats');
+      const request = store.get(chatId);
+
+      request.onsuccess = () => {
+        const chat = request.result as StoredChat | undefined;
+        if (chat) {
+          chat.messageCount = (chat.messageCount || 0) + stats.messageCountIncrement;
+          chat.totalCost = (chat.totalCost || 0) + stats.costIncrement;
+          chat.totalTokens = (chat.totalTokens || 0) + stats.tokensIncrement;
+          if (stats.models) {
+            const existingModels = chat.models || [];
+            chat.models = [...new Set([...existingModels, ...stats.models])];
+          }
+          chat.updatedAt = new Date();
+          const updateRequest = store.put(chat);
+          updateRequest.onsuccess = () => {
+            this.cache.invalidate(`chat:${chatId}`);
+            this.cache.invalidate('allChats');
+            resolve();
+          };
+          updateRequest.onerror = () => reject(updateRequest.error);
+        } else {
+          resolve();
+        }
+      };
+      request.onerror = () => reject(request.error);
+    });
   }
 
   // Create a new version (sibling) of an existing message
@@ -598,12 +620,7 @@ class ChatDatabase {
   async deleteMessagesAfter(messageId: string, chatId: string): Promise<void> {
     if (!this.db) await this.init();
 
-    const messagesToDelete: string[] = [];
-
-    // Get all messages in chat
     const allMessages = await this.getMessages(chatId);
-
-    // Build a map of message relationships
     const childrenMap = new Map<string, string[]>();
     allMessages.forEach(msg => {
       if (msg.parentId) {
@@ -613,7 +630,7 @@ class ChatDatabase {
       }
     });
 
-    // Recursively collect all descendants
+    const messagesToDelete: string[] = [];
     const collectDescendants = (id: string) => {
       const children = childrenMap.get(id) || [];
       children.forEach(childId => {
@@ -624,10 +641,22 @@ class ChatDatabase {
 
     collectDescendants(messageId);
 
-    // Delete all collected messages
-    for (const id of messagesToDelete) {
-      await this.deleteMessage(id);
-    }
+    if (messagesToDelete.length === 0) return;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['messages'], 'readwrite');
+      const store = transaction.objectStore('messages');
+
+      messagesToDelete.forEach(id => {
+        store.delete(id);
+        this.cache.invalidate(`message:${id}`);
+      });
+
+      this.cache.invalidate(`messages:${chatId}`);
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
   }
 
   // Clear all data

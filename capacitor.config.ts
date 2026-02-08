@@ -8,13 +8,13 @@ const config: CapacitorConfig = {
   webDir: 'build/client',
   server: isDev ? {
     // Development: use local dev server
-    url: 'http://localhost:5173',
+    url: 'http://localhost:3422',
     cleartext: true,
     androidScheme: 'http'
   } : {
     // Production: use embedded assets
     // The server will run separately bundled with the app
-    url: 'http://localhost:3422',
+    url: 'http://localhost:3422', // http://localhost:3422
     cleartext: true,
     androidScheme: 'http',
     hostname: 'localhost',

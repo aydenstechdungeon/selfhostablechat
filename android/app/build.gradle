@@ -36,7 +36,8 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
     
     // nodejs-mobile for running Node.js server (like Electron)
-    implementation 'com.github.code-troopers:nodejs-mobile-android:v0.4.3'
+    // Temporarily commented out due to JitPack 401 error - using external dev server for now
+    // implementation 'com.github.code-troopers:nodejs-mobile-android:v0.4.3'
 }
 
 apply from: 'capacitor.build.gradle'

@@ -173,8 +173,8 @@ export class OpenRouterClient {
   }
 
   private async fetchWithTimeout(
-    url: string, 
-    options: RequestInit, 
+    url: string,
+    options: RequestInit,
     timeoutMs: number
   ): Promise<Response> {
     const controller = new AbortController();
@@ -189,12 +189,12 @@ export class OpenRouterClient {
       return response;
     } catch (error) {
       clearTimeout(timeoutId);
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           throw new Error(`Request timed out after ${timeoutMs}ms. The OpenRouter API may be unreachable from your container. Check your network configuration and ensure outbound HTTPS is allowed.`);
         }
-        
+
         // Handle specific network errors
         if (error.message.includes('ETIMEDOUT') || error.message.includes('fetch failed')) {
           console.error(`Network error connecting to ${url}:`, error.message);
@@ -260,21 +260,26 @@ export class OpenRouterClient {
       let buffer = '';
 
       // Set up a timeout for individual chunks to detect stalled connections
-      let lastChunkTime = Date.now();
       const CHUNK_TIMEOUT_MS = 30000; // 30 seconds between chunks
 
       while (true) {
-        // Check for chunk timeout
-        if (Date.now() - lastChunkTime > CHUNK_TIMEOUT_MS) {
-          reader.cancel();
-          throw new Error(`Streaming connection stalled - no data received for ${CHUNK_TIMEOUT_MS}ms`);
-        }
+        // Use Promise.race to enforce a timeout on the read operation itself
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const readPromise = reader.read();
+        const timeoutPromise = new Promise<{ done: boolean; value?: Uint8Array }>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error(`Streaming connection stalled - no data received for ${CHUNK_TIMEOUT_MS}ms`)), CHUNK_TIMEOUT_MS);
+        });
 
-        const { done, value } = await reader.read();
-        
+        const { done, value } = await Promise.race([readPromise, timeoutPromise])
+          .finally(() => {
+            if (timeoutId) clearTimeout(timeoutId);
+          })
+          .catch(error => {
+            reader.cancel();
+            throw error;
+          });
+
         if (done) break;
-        
-        lastChunkTime = Date.now();
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -283,7 +288,7 @@ export class OpenRouterClient {
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || trimmed === 'data: [DONE]') continue;
-          
+
           if (trimmed.startsWith('data: ')) {
             try {
               const json = JSON.parse(trimmed.slice(6));

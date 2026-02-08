@@ -33,14 +33,20 @@ export const handle: Handle = async ({ event, resolve }) => {
 	if (event.request.method !== 'GET' && event.request.method !== 'HEAD') {
 		const origin = event.request.headers.get('origin');
 		const host = event.request.headers.get('host');
+		const referer = event.request.headers.get('referer');
 
-		if (origin && host) {
-			// Allow same-origin requests (including protocol-flexible localhost)
-			if (!isLocalhostOrigin(origin, host)) {
-				if (event.url.pathname.startsWith('/api/')) {
-					console.warn(`CSRF blocked: origin=${origin}, host=${host}`);
-					return new Response('CSRF validation failed', { status: 403 });
-				}
+		// Strictly require origin or referer for state-changing requests to /api/
+		if (event.url.pathname.startsWith('/api/')) {
+			if (!origin && !referer) {
+				console.warn(`CSRF blocked: Missing origin and referer headers for ${event.url.pathname}`);
+				return new Response('CSRF validation failed: Missing security headers', { status: 403 });
+			}
+
+			const shieldOrigin = origin || (referer ? new URL(referer).origin : null);
+
+			if (!shieldOrigin || !host || !isLocalhostOrigin(shieldOrigin, host)) {
+				console.warn(`CSRF blocked: origin=${origin}, referer=${referer}, host=${host}`);
+				return new Response('CSRF validation failed: Origin mismatch', { status: 403 });
 			}
 		}
 	}

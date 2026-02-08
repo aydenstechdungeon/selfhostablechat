@@ -839,18 +839,14 @@ const createChatStore = () => {
         }));
 
         if (!isChatStoringDisabled()) {
-          const allMessages = await chatDB.getMessages(state!.activeChatId!);
-          const totalCost = allMessages.reduce((sum, m) => sum + (m.stats?.cost || 0), 0);
-          const totalTokens = allMessages.reduce((sum, m) =>
-            sum + (m.stats?.tokensInput || 0) + (m.stats?.tokensOutput || 0), 0
-          );
-          const models = [...new Set(allMessages.map(m => m.model).filter(Boolean))] as string[];
+          const costIncrement = messageStats?.cost || 0;
+          const tokensIncrement = (messageStats?.tokensInput || 0) + (messageStats?.tokensOutput || 0);
 
           await chatDB.updateChatStats(state!.activeChatId!, {
-            messageCount: allMessages.length,
-            totalCost,
-            totalTokens,
-            models
+            messageCountIncrement: 0, // Assistant message was already saved, just updating stats
+            costIncrement,
+            tokensIncrement,
+            models: assistantModel ? [assistantModel] : []
           });
 
           if (typeof window !== 'undefined') {
@@ -1388,44 +1384,52 @@ const createChatStore = () => {
           })
         }));
 
-        if (!isChatStoringDisabled()) {
-          const allStoredMessages = await chatDB.getMessages(chatId);
-          const totalCost = allStoredMessages.reduce((sum, m) => sum + (m.stats?.cost || 0), 0);
-          const totalTokens = allStoredMessages.reduce((sum, m) =>
-            sum + (m.stats?.tokensInput || 0) + (m.stats?.tokensOutput || 0), 0
-          );
-          const models = [...new Set(allStoredMessages.map(m => m.model).filter(Boolean))] as string[];
+        let totalCostIncr = 0;
+        let totalTokensIncr = 0;
+        const usedModels: string[] = [];
 
-          await chatDB.updateChatStats(chatId, {
-            messageCount: allStoredMessages.length,
-            totalCost,
-            totalTokens,
-            models
-          });
-
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('chat-updated'));
+        for (const msg of assistantMessages) {
+          const stats = messageStatsMap.get(msg.id);
+          if (stats) {
+            totalCostIncr += stats.cost || 0;
+            totalTokensIncr += (stats.tokensInput || 0) + (stats.tokensOutput || 0);
           }
+          const finalModel = assistantModels.get(msg.id) || msg.model;
+          if (finalModel) usedModels.push(finalModel);
+        }
 
-          // Persist the new leaf position (assistant message - use the last one)
-          if (assistantMessages.length > 0) {
-            const lastAssistantId = assistantMessages[assistantMessages.length - 1].id;
-            const chat = await chatDB.getChat(chatId);
-            if (chat) {
-              chat.currentLeafMessageId = lastAssistantId;
-              await chatDB.saveChat(chat);
-            }
+        // Also count the user message in messageCountIncrement
+        await chatDB.updateChatStats(chatId, {
+          messageCountIncrement: 1 + assistantMessages.length,
+          costIncrement: totalCostIncr,
+          tokensIncrement: totalTokensIncr,
+          models: usedModels
+        });
+
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('chat-updated'));
+        }
+
+        // Persist the new leaf position (assistant message - use the last one)
+        if (assistantMessages.length > 0) {
+          const lastAssistantId = assistantMessages[assistantMessages.length - 1].id;
+          const chat = await chatDB.getChat(chatId);
+          if (chat) {
+            chat.currentLeafMessageId = lastAssistantId;
+            await chatDB.saveChat(chat);
           }
         }
 
-        const finalMessages = await buildVisibleMessages(chatId, newActivePath);
+        const visibleMessages = await buildVisibleMessages(chatId, newActivePath);
         update(s => ({
           ...s,
           ...(s.activeChatId === chatId ? {
-            messages: finalMessages,
+            messages: visibleMessages,
             isStreaming: false,
             streamingBuffer: '',
             streamingModel: null,
+            multiModelBuffers: new Map(),
+            multiModelStats: new Map(),
             abortController: null,
             partialContentMap: new Map(),
             streamingMessageIds: []
@@ -1454,6 +1458,8 @@ const createChatStore = () => {
           isStreaming: false,
           streamingBuffer: '',
           streamingModel: null,
+          multiModelBuffers: new Map(),
+          multiModelStats: new Map(),
           abortController: null,
           partialContentMap: new Map(),
           streamingMessageIds: []
@@ -1507,6 +1513,10 @@ const createChatStore = () => {
         update(s => ({
           ...s,
           isStreaming: false,
+          streamingBuffer: '',
+          streamingModel: null,
+          multiModelBuffers: new Map(),
+          multiModelStats: new Map(),
           abortController: null,
           partialContentMap: new Map(),
           streamingMessageIds: []

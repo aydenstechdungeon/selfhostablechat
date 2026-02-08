@@ -36,8 +36,8 @@ function sanitizeInput(input: string): string {
 function isValidApiKey(key: string): boolean {
   // OpenRouter keys typically start with 'sk-or-' and are at least 20 chars
   return typeof key === 'string' &&
-         key.length >= 20 &&
-         /^sk-[a-zA-Z0-9_-]+$/.test(key);
+    key.length >= 20 &&
+    /^sk-[a-zA-Z0-9_-]+$/.test(key);
 }
 
 // Generate a chat title - uses whatever title is returned without retrying
@@ -45,20 +45,30 @@ async function generateChatTitle(
   messages: Array<{ role: string; content: string | any[] }>,
   apiKey: string
 ): Promise<string> {
-  const summary = await generateChatSummary(messages, apiKey);
-  console.log(`[Chat Title Generation] Generated title: "${summary}"`);
-  return summary;
+  try {
+    const summary = await generateChatSummary(messages, apiKey);
+    console.log(`[Chat Title Generation] Generated title: "${summary}"`);
+    return summary;
+  } catch (error) {
+    console.error('[Chat Title Generation] Error:', error);
+    // Fallback title on error to avoid crashing the stream
+    const firstUserMsg = messages.find(m => m.role === 'user');
+    if (firstUserMsg && typeof firstUserMsg.content === 'string') {
+      return firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '');
+    }
+    return 'New Chat';
+  }
 }
 
 // Template variable replacement function
 function processSystemPromptTemplate(prompt: string, modelId: string): string {
   if (!prompt) return prompt;
-  
+
   // Parse model info from ID (e.g., "anthropic/claude-3.5-sonnet" or "x-ai/grok-4.1-fast")
   const parts = modelId.split('/');
   const creator = parts[0] || 'Unknown';
   const modelName = parts[1] || modelId;
-  
+
   // Format creator name (e.g., "anthropic" -> "Anthropic", "x-ai" -> "xAI")
   const formattedCreator = creator
     .split('-')
@@ -71,7 +81,7 @@ function processSystemPromptTemplate(prompt: string, modelId: string): string {
     .replace('Cohere', 'Cohere')
     .replace('Perplexity', 'Perplexity')
     .replace('Ai21', 'AI21');
-  
+
   // Format model name (replace hyphens with spaces, title case)
   const formattedModelName = modelName
     .split('-')
@@ -81,7 +91,7 @@ function processSystemPromptTemplate(prompt: string, modelId: string): string {
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(' ');
-  
+
   return prompt
     .replace(/:model_name:/g, formattedModelName)
     .replace(/:model_creator:/g, formattedCreator)
@@ -114,8 +124,8 @@ function isImageConversionRequest(message: string): boolean {
 
 // Build conversation messages with optional system prompt and image attachments
 function buildConversationMessages(
-  conversationHistory: any[], 
-  message: string, 
+  conversationHistory: any[],
+  message: string,
   attachments: MediaAttachment[] = [],
   systemPrompt?: string,
   modelId?: string,
@@ -123,13 +133,13 @@ function buildConversationMessages(
 ): { messages: OpenRouterMessage[]; tools?: OpenRouterTool[] } {
   const messages: OpenRouterMessage[] = [];
   let tools: OpenRouterTool[] | undefined;
-  
+
   // Determine if this is an image generation model
   const isImageGenModel = modelId && isImageGenerationModel(modelId);
-  
+
   // Add system prompt if provided
   if (systemPrompt) {
-    const processedPrompt = modelId 
+    const processedPrompt = modelId
       ? processSystemPromptTemplate(systemPrompt, modelId)
       : systemPrompt;
     messages.push({
@@ -137,7 +147,7 @@ function buildConversationMessages(
       content: processedPrompt
     });
   }
-  
+
   // Add image generation prompt for image generation models
   if (isImageGenModel) {
     messages.push({
@@ -145,7 +155,7 @@ function buildConversationMessages(
       content: IMAGE_GENERATION_PROMPT
     });
   }
-  
+
   // Add image conversion tool prompt if images are attached and user might want conversion
   if (includeImageConversionTool && attachments.some(a => a.type === 'image')) {
     messages.push({
@@ -154,7 +164,7 @@ function buildConversationMessages(
     });
     tools = [IMAGE_CONVERSION_TOOL as OpenRouterTool];
   }
-  
+
   // Add conversation history
   messages.push(...conversationHistory.map((m: any) => ({
     role: m.role,
@@ -163,16 +173,16 @@ function buildConversationMessages(
 
   // Build current user message content
   let userContent: OpenRouterMessage['content'];
-  
+
   if (attachments.length > 0) {
     // Create multimodal content with images
     const contentParts: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [];
-    
+
     // Add text part
     if (message.trim()) {
       contentParts.push({ type: 'text', text: message });
     }
-    
+
     // Add image parts
     for (const attachment of attachments) {
       if (attachment.type === 'image') {
@@ -182,19 +192,19 @@ function buildConversationMessages(
         });
       }
     }
-    
+
     userContent = contentParts;
   } else {
     // Text-only message
     userContent = message;
   }
-  
+
   // Add current user message
   messages.push({
     role: 'user',
     content: userContent
   });
-  
+
   return { messages, tools };
 }
 
@@ -203,7 +213,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     // Apply rate limiting
     const clientIp = getClientAddress();
     const rateLimit = checkRateLimit(clientIp);
-    
+
     if (!rateLimit.allowed) {
       return json({
         error: 'Rate limit exceeded',
@@ -218,13 +228,13 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     }
 
     const body = await request.json();
-    const { 
-      message, 
-      attachments = [], 
-      mode = 'auto', 
-      models = [], 
-      apiKey, 
-      conversationHistory = [], 
+    const {
+      message,
+      attachments = [],
+      mode = 'auto',
+      models = [],
+      apiKey,
+      conversationHistory = [],
       systemPrompt,
       imageOptions,
       webSearch
@@ -278,10 +288,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
     if (mode === 'auto') {
       const routerDecision = await analyzeAndRoute(sanitizedMessage, attachments as MediaAttachment[], apiKey);
-      
+
       // Check if this might be an image conversion request
       const includeConversionTool = isImageConversionRequest(sanitizedMessage);
-      
+
       const { messages: conversationMessages, tools } = buildConversationMessages(
         conversationHistory,
         sanitizedMessage,
@@ -290,7 +300,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         routerDecision.model,
         includeConversionTool
       );
-      
+
       // Start title generation in parallel with streaming
       // FIX: Properly handle content that could be string or array
       const titlePromise = generateChatTitle(
@@ -330,10 +340,10 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         // For multi-model mode, we'll use the first model for template processing
         // as a reasonable default
         const primaryModel = models[0];
-        
+
         // Check if this might be an image conversion request
         const includeConversionTool = isImageConversionRequest(sanitizedMessage);
-        
+
         const { messages: conversationMessages, tools } = buildConversationMessages(
           conversationHistory,
           sanitizedMessage,
@@ -342,7 +352,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
           primaryModel,
           includeConversionTool
         );
-        
+
         // Start title generation in parallel with streaming for manual mode too
         // FIX: Properly handle content that could be string or array
         const titlePromise = generateChatTitle(
@@ -352,16 +362,16 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
           })),
           apiKey
         );
-        
+
         // Process the stream
         for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools, webSearch)) {
           yield chunk as StreamChunk;
         }
-        
+
         // Wait for title generation to complete
         const summary = await titlePromise;
         yield { type: 'summary', summary } as StreamChunk;
-        
+
         yield { type: 'done' } as StreamChunk;
       })();
 
