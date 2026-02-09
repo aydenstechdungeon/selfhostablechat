@@ -5,10 +5,12 @@ A modern, feature-rich AI chat application built with SvelteKit and OpenRouter, 
 ## ✨ Features
 
 ### 🤖 AI Capabilities
-- **Auto Mode**: Intelligent model routing using gpt-oss-20b to select the best model for each query
+- **Auto Mode**: Intelligent model routing using `openai/gpt-oss-20b` to select the best model for each query
 - **Manual Multi-Model Mode**: Run multiple models simultaneously and compare responses
 - **Real-time Streaming**: Token-by-token streaming with typed animation effects
 - **Chat Summaries**: Automatic generation of descriptive chat titles
+- **Image Generation**: Native image generation with Gemini models
+- **Web Search**: Optional web search integration with citations
 
 ### 📊 Analytics & Stats
 - Per-message statistics (tokens, cost, latency)
@@ -345,13 +347,19 @@ static/                 # Static assets
 ### Supported Models
 
 **Auto Mode** (models available for intelligent routing):
-- `deepseek/deepseek-r1-distill-qwen-32b` - Deep reasoning
-- `x-ai/grok-2-1212` - Fast responses
-- `google/gemini-2.5-flash-lite` - Lightweight
-- `google/gemini-3-flash-preview` - Latest Google model
-- `anthropic/claude-sonnet-4.5` - Complex reasoning
-- `openai/gpt-4.5-turbo-preview` - Advanced capabilities
-- `google/gemini-2.5-flash-image` (Nano Banana) - Image analysis
+- `openai/gpt-oss-20b` - Router/summarizer model
+- `openai/gpt-4o-mini` - Fast, efficient
+- `openai/gpt-5.1`, `openai/gpt-5.2`, `openai/gpt-5.2-pro` - Advanced OpenAI models
+- `x-ai/grok-4.1-fast` - Fast general purpose
+- `google/gemini-2.5-flash-lite` - Lightweight, efficient
+- `google/gemini-3-flash-preview` - Latest Gemini with vision
+- `google/gemini-3-pro-image-preview` - High-quality image generation (Nano Banana Pro)
+- `google/gemini-2.5-flash-image` - Image analysis/vision (Nano Banana)
+- `anthropic/claude-sonnet-4.5`, `anthropic/claude-opus-4.5` - Coding, writing, complex reasoning
+- `deepseek/deepseek-v3.2` - Deep reasoning
+- `meta-llama/llama-4-scout`, `meta-llama/llama-4-maverick` - Meta Llama 4 models
+- `moonshotai/kimi-k2.5` - General purpose
+- `minimax/minimax-m2.1` - General purpose
 
 **Manual Mode**: Any OpenRouter model can be selected
 
@@ -432,13 +440,16 @@ bun run desktop:build
 ## 🎯 Roadmap
 
 - [x] Core chat functionality
-- [x] Auto-routing with parallel execution
+- [x] Auto-routing with intelligent model selection
 - [x] Multi-model streaming
 - [x] Stats tracking and dashboard
 - [x] Encrypted API key storage
 - [x] Docker support for easy self-hosting
 - [x] Electron desktop app (Linux, Windows, macOS)
 - [x] Capacitor Android app with bundled server
+- [x] Image generation support (Gemini models)
+- [x] Web search integration with citations
+- [x] Message branching/edit history
 - [ ] iOS app support (Capacitor)
 - [ ] Advanced analytics charts
 - [ ] Export/import conversations

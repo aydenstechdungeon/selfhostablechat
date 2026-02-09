@@ -53,6 +53,8 @@
 	let selectedImageUrl = $state<string | null>(null);
 	let selectedImageAlt = $state("");
 
+	import { mermaidModalStore } from "$lib/stores/mermaidModalStore";
+
 	function openImageModal(imageUrl: string, alt: string) {
 		selectedImageUrl = imageUrl;
 		selectedImageAlt = alt;
@@ -205,6 +207,28 @@
 		return () => {
 			if (contentElement) {
 				contentElement.removeEventListener("click", handleImageClick);
+			}
+		};
+	});
+
+	// Event listener for mermaid-expand events
+	$effect(() => {
+		if (!contentElement) return;
+
+		const handleMermaidExpand = (e: Event) => {
+			const customEvent = e as CustomEvent<{ code: string }>;
+			if (customEvent.detail?.code) {
+				mermaidModalStore.open(customEvent.detail.code);
+			}
+		};
+
+		contentElement.addEventListener("mermaid-expand", handleMermaidExpand);
+		return () => {
+			if (contentElement) {
+				contentElement.removeEventListener(
+					"mermaid-expand",
+					handleMermaidExpand,
+				);
 			}
 		};
 	});

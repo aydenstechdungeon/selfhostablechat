@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { X, ZoomIn, ZoomOut, Download, ImagePlus, RefreshCw } from 'lucide-svelte';
+	import { X, ZoomIn, ZoomOut, Download, ImagePlus, RefreshCw, Move } from 'lucide-svelte';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { toastStore } from '$lib/stores/toastStore';
 	import { convertImage, detectImageFormat, formatImageSize, getDataUrlSize, type ImageFormat } from '$lib/utils/imageConversion';
@@ -17,6 +17,15 @@
 	let scale = $state(1);
 	let isLoading = $state(true);
 	let theme = $derived(ui.current.theme);
+	
+	// Pan state
+	let panX = $state(0);
+	let panY = $state(0);
+	let isDragging = $state(false);
+	let dragStartX = $state(0);
+	let dragStartY = $state(0);
+	let panStartX = $state(0);
+	let panStartY = $state(0);
 	
 	// Conversion state
 	let showConversionPanel = $state(false);
@@ -48,10 +57,119 @@
 	
 	function zoomOut() {
 		scale = Math.max(scale - 0.25, 0.5);
+		if (scale <= 1) {
+			panX = 0;
+			panY = 0;
+		}
 	}
 	
 	function resetZoom() {
 		scale = 1;
+		panX = 0;
+		panY = 0;
+	}
+	
+	// Double-click to toggle zoom
+	function handleDoubleClick() {
+		if (scale > 1) {
+			resetZoom();
+		} else {
+			scale = 2;
+		}
+	}
+	
+	// Pan/drag handlers
+	function handleMouseDown(e: MouseEvent) {
+		if (scale > 1 && e.button === 0) {
+			isDragging = true;
+			dragStartX = e.clientX;
+			dragStartY = e.clientY;
+			panStartX = panX;
+			panStartY = panY;
+		}
+	}
+	
+	function handleMouseMove(e: MouseEvent) {
+		if (isDragging && scale > 1) {
+			const dx = e.clientX - dragStartX;
+			const dy = e.clientY - dragStartY;
+			panX = panStartX + dx;
+			panY = panStartY + dy;
+		}
+	}
+	
+	function handleMouseUp() {
+		isDragging = false;
+	}
+	
+	// Mouse wheel zoom
+	function handleWheel(e: WheelEvent) {
+		e.preventDefault();
+		const delta = e.deltaY > 0 ? -0.15 : 0.15;
+		const newScale = Math.max(0.5, Math.min(3, scale + delta));
+		
+		if (newScale !== scale) {
+			// Zoom toward cursor position
+			if (newScale > 1 && scale <= 1) {
+				// Starting zoom - begin from center
+				panX = 0;
+				panY = 0;
+			} else if (newScale <= 1) {
+				// Zoomed out - reset pan
+				panX = 0;
+				panY = 0;
+			}
+			scale = newScale;
+		}
+	}
+	
+	// Touch support for mobile
+	let lastTouchDist = 0;
+	let lastTouchX = 0;
+	let lastTouchY = 0;
+	
+	function handleTouchStart(e: TouchEvent) {
+		if (e.touches.length === 1 && scale > 1) {
+			isDragging = true;
+			lastTouchX = e.touches[0].clientX;
+			lastTouchY = e.touches[0].clientY;
+			panStartX = panX;
+			panStartY = panY;
+		} else if (e.touches.length === 2) {
+			isDragging = false;
+			const dx = e.touches[0].clientX - e.touches[1].clientX;
+			const dy = e.touches[0].clientY - e.touches[1].clientY;
+			lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+		}
+	}
+	
+	function handleTouchMove(e: TouchEvent) {
+		e.preventDefault();
+		if (e.touches.length === 1 && isDragging && scale > 1) {
+			const dx = e.touches[0].clientX - lastTouchX;
+			const dy = e.touches[0].clientY - lastTouchY;
+			panX = panStartX + dx;
+			panY = panStartY + dy;
+		} else if (e.touches.length === 2) {
+			const dx = e.touches[0].clientX - e.touches[1].clientX;
+			const dy = e.touches[0].clientY - e.touches[1].clientY;
+			const dist = Math.sqrt(dx * dx + dy * dy);
+			
+			if (lastTouchDist > 0) {
+				const delta = (dist - lastTouchDist) * 0.01;
+				scale = Math.max(0.5, Math.min(3, scale + delta));
+				if (scale <= 1) {
+					panX = 0;
+					panY = 0;
+				}
+			}
+			lastTouchDist = dist;
+		}
+	}
+	
+	function handleTouchEnd() {
+		isDragging = false;
+		lastTouchDist = 0;
 	}
 	
 	async function downloadImage(url: string = imageUrl, format?: string) {
@@ -182,6 +300,16 @@
 			title="Zoom in (+)"
 		>
 			<ZoomIn size={20} class="text-white {scale >= 3 ? 'opacity-50' : ''}" />
+		</button>
+		<div class="w-px h-6 bg-white/20 mx-1"></div>
+		<button
+			class="p-2 rounded-full hover:bg-white/20 transition-colors {scale !== 1 || panX !== 0 || panY !== 0 ? 'bg-white/20' : ''}"
+			onclick={resetZoom}
+			disabled={scale === 1 && panX === 0 && panY === 0}
+			aria-label="Reset zoom and pan"
+			title="Reset (0)"
+		>
+			<Move size={20} class="text-white {scale === 1 && panX === 0 && panY === 0 ? 'opacity-50' : ''}" />
 		</button>
 		<div class="w-px h-6 bg-white/20 mx-1"></div>
 		<button
@@ -320,7 +448,21 @@
 	{/if}
 	
 	<!-- Image container -->
-	<div class="relative max-w-[90vw] max-h-[90vh] overflow-hidden">
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+	<div 
+		class="relative max-w-[90vw] max-h-[90vh] overflow-hidden"
+		role="img"
+		aria-label={alt}
+		onwheel={handleWheel}
+		onmousedown={handleMouseDown}
+		onmousemove={handleMouseMove}
+		onmouseup={handleMouseUp}
+		onmouseleave={handleMouseUp}
+		ontouchstart={handleTouchStart}
+		ontouchmove={handleTouchMove}
+		ontouchend={handleTouchEnd}
+		ondblclick={handleDoubleClick}
+	>
 		{#if isLoading}
 			<div class="absolute inset-0 flex items-center justify-center">
 				<div class="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -329,8 +471,12 @@
 		<img
 			src={convertedUrl || imageUrl}
 			{alt}
-			class="max-w-full max-h-[80vh] object-contain transition-transform duration-200 ease-out cursor-grab active:cursor-grabbing"
-			style:transform="scale({scale})"
+			class="max-w-full max-h-[80vh] object-contain transition-transform duration-200 ease-out select-none"
+			class:cursor-grab={scale > 1 && !isDragging}
+			class:cursor-grabbing={isDragging}
+			class:cursor-zoom-in={scale <= 1}
+			style:transform="scale({scale}) translate({panX / scale}px, {panY / scale}px)"
+			style:transform-origin="center center"
 			onload={() => isLoading = false}
 			onerror={() => isLoading = false}
 			draggable={false}
@@ -340,8 +486,9 @@
 	</div>
 	
 	<!-- Instructions -->
-	<div class="absolute top-4 left-4 text-white/50 text-xs">
+	<div class="absolute top-4 left-4 text-white/50 text-xs space-y-1">
 		<p>ESC to close • +/- to zoom • 0 to reset</p>
+		<p class="text-white/30">Scroll to zoom • Drag to pan when zoomed</p>
 	</div>
 </div>
 

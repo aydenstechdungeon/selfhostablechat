@@ -4,6 +4,8 @@
 	import ToastContainer from "$lib/components/ui/ToastContainer.svelte";
 	import { QueryClientProvider } from "@tanstack/svelte-query";
 	import { createQueryClient } from "$lib/query/client";
+	import MermaidModal from "$lib/components/media/MermaidModal.svelte";
+	import { mermaidModalStore } from "$lib/stores/mermaidModalStore";
 
 	let { children } = $props();
 
@@ -42,6 +44,14 @@
 </div>
 
 <ToastContainer />
+
+<!-- Global Mermaid Modal -->
+{#if $mermaidModalStore.isOpen}
+	<MermaidModal
+		mermaidCode={$mermaidModalStore.code}
+		onClose={() => mermaidModalStore.close()}
+	/>
+{/if}
 
 <style>
 	:global(html, body) {
