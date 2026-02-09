@@ -8,6 +8,8 @@
 		onClose: () => void;
 	}
 
+	import { preprocessMermaidCode } from "$lib/utils/markdown";
+
 	let { mermaidCode, onClose }: Props = $props();
 
 	let scale = $state(1);
@@ -42,48 +44,6 @@
 	let panelBg = "#1a1f2e";
 	let panelText = "#e2e8f0";
 	let panelBorder = "#2d3748";
-
-	// Preprocess mermaid code
-	function preprocessMermaidCode(code: string): string {
-		let processed = code.replace(/<br\s*\/>/gi, "<br>").trim();
-
-		if (processed.includes("erDiagram")) {
-			processed = processed.replace(
-				/(^|\s|>|})(\s*)([A-Za-z][A-Za-z0-9]*-[A-Za-z0-9-]*)(\s*[{|\s])/gm,
-				'$1$2"$3"$4',
-			);
-		}
-
-		if (processed.includes("flowchart") || processed.includes("graph")) {
-			processed = processed.replace(
-				/([A-Za-z_][A-Za-z0-9_]*)\[([^\]"[]*[\(\)\{\}<>][^\]"[]*)\]/g,
-				(nodeId: string, id: string, label: string) => {
-					if (label && !label.startsWith('"')) {
-						return `${id}["${label}"]`;
-					}
-					return `${nodeId}[${label}]`;
-				},
-			);
-
-			const subgraphMatches = processed.matchAll(
-				/subgraph\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[/g,
-			);
-			const subgraphIds = new Set<string>();
-			for (const match of subgraphMatches) {
-				subgraphIds.add(match[1]);
-			}
-
-			for (const subgraphId of subgraphIds) {
-				const nodePattern = new RegExp(
-					`(?<!subgraph\\s+)(${subgraphId})(\\[[^\\]]+\\])`,
-					"g",
-				);
-				processed = processed.replace(nodePattern, `$1_Node$2`);
-			}
-		}
-
-		return processed;
-	}
 
 	// Load and render mermaid diagram
 	async function renderDiagram() {
@@ -281,6 +241,44 @@
 	useKeyboardShortcut("=", zoomIn);
 	useKeyboardShortcut("-", zoomOut);
 	useKeyboardShortcut("0", resetZoom);
+
+	// Focus trap
+	$effect(() => {
+		if (!modalContent) return;
+
+		const focusableElements = modalContent.querySelectorAll(
+			'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+		);
+		const firstElement = focusableElements[0] as HTMLElement;
+		const lastElement = focusableElements[
+			focusableElements.length - 1
+		] as HTMLElement;
+
+		if (firstElement) {
+			firstElement.focus();
+		}
+
+		const handleTab = (e: KeyboardEvent) => {
+			if (e.key === "Tab") {
+				if (e.shiftKey) {
+					if (document.activeElement === firstElement) {
+						e.preventDefault();
+						lastElement?.focus();
+					}
+				} else {
+					if (document.activeElement === lastElement) {
+						e.preventDefault();
+						firstElement?.focus();
+					}
+				}
+			}
+		};
+
+		modalContent.addEventListener("keydown", handleTab);
+		return () => {
+			modalContent?.removeEventListener("keydown", handleTab);
+		};
+	});
 </script>
 
 <div

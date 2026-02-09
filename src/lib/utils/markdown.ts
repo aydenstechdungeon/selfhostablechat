@@ -217,7 +217,7 @@ export function parseMarkdown(content: string, isStreaming: boolean = false): st
 				const sanitized = typeof window !== 'undefined'
 					? DOMPurify.sanitize(rawHtml, {
 						ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt', 'data-mermaid-code', 'data-tab', 'data-initialized'],
-						ADD_TAGS: ['iframe', 'button'],
+						ADD_TAGS: ['button'],
 					})
 					: rawHtml; // Fallback for SSR
 				return wrapTablesInContainers(sanitized);
@@ -238,7 +238,7 @@ export function parseMarkdown(content: string, isStreaming: boolean = false): st
 					const sanitized = typeof window !== 'undefined'
 						? DOMPurify.sanitize(rawHtml, {
 							ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt', 'data-mermaid-code', 'data-tab', 'data-initialized'],
-							ADD_TAGS: ['iframe', 'button'],
+							ADD_TAGS: ['button'],
 						})
 						: rawHtml;
 					return wrapTablesInContainers(sanitized);
@@ -262,7 +262,7 @@ export function parseMarkdown(content: string, isStreaming: boolean = false): st
 		const sanitized = typeof window !== 'undefined'
 			? DOMPurify.sanitize(rawHtml, {
 				ADD_ATTR: ['target', 'rel', 'data-image-url', 'data-image-alt', 'data-mermaid-code', 'data-tab', 'data-initialized'],
-				ADD_TAGS: ['iframe', 'button'], // Allow these for custom renderers
+				ADD_TAGS: ['button'], // Allow these for custom renderers
 			})
 			: rawHtml;
 
@@ -418,6 +418,70 @@ let mermaidInstance: typeof import('mermaid').default | null = null;
 let mermaidLoadPromise: Promise<typeof import('mermaid').default> | null = null;
 
 // Initialize mermaid diagrams
+// Preprocess mermaid code to fix common issues
+export function preprocessMermaidCode(code: string): string {
+	let processed = code
+		// Replace <br/> and <br /> with proper line break syntax for mermaid
+		// In mermaid, you can use <br> (without slash) inside node labels
+		.replace(/<br\s*\/>/gi, '<br>')
+		.trim();
+
+	// For erDiagram: quote entity names with hyphens or special characters
+	// Match erDiagram entity definitions like: EntityName { or EntityName {
+	if (processed.includes('erDiagram')) {
+		// Quote entity names that contain hyphens (but aren't already quoted)
+		// Pattern: match entity names at start of line or after relationship arrows
+		// Avoid matching relationships like o--|| by requiring alphanumeric chars after hyphens
+		processed = processed.replace(
+			/(^|\s|>|})(\s*)([A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+)(\s*[{\s])/gm,
+			'$1$2"$3"$4'
+		);
+	}
+
+	// For flowchart: quote node labels containing parentheses, brackets, or special chars
+	// Pattern: NodeID[Label] or NodeID["Label"] - quote unquoted labels with special chars
+	// Matches: ID[text with (parens)] but not ID["already quoted"]
+	if (processed.includes('flowchart') || processed.includes('graph')) {
+		// Match node definitions with square brackets that have unquoted labels containing special chars
+		// Node ID pattern: letters, numbers, underscores, some special chars
+		processed = processed.replace(
+			/([A-Za-z_][A-Za-z0-9_]*)\[([^\]"[]*[\(\)\{\}<>][^\]"[]*)\]/g,
+			(nodeId: string, id: string, label: string) => {
+				// If label contains special chars and isn't already quoted, quote it
+				if (label && !label.startsWith('"')) {
+					return `${id}["${label}"]`;
+				}
+				return `${nodeId}[${label}]`;
+			}
+		);
+
+		// Fix subgraph/node ID conflicts: when a node inside a subgraph has the same ID as the subgraph
+		// This causes "Setting X as parent of X would create a cycle" error
+		// Pattern: subgraph ID["label"] ... ID[...] end
+		// Solution: rename the inner node ID by adding a suffix
+		const subgraphMatches = processed.matchAll(/subgraph\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[/g);
+		const subgraphIds = new Set<string>();
+		for (const match of subgraphMatches) {
+			subgraphIds.add(match[1]);
+		}
+
+		// For each subgraph ID, find nodes with the same ID inside subgraphs and rename them
+		for (const subgraphId of subgraphIds) {
+			// Match pattern: subgraphId[label] that appears after a subgraph declaration
+			// We need to be careful to only rename nodes INSIDE subgraphs, not the subgraph declarations themselves
+			// Pattern: look for node definitions that match subgraph ID but aren't part of "subgraph ID["
+			const nodePattern = new RegExp(
+				`(?<!subgraph\\s+)(${subgraphId})(\\[[^\\]]+\\])`,
+				'g'
+			);
+			processed = processed.replace(nodePattern, `$1_Node$2`);
+		}
+	}
+
+	return processed;
+}
+
+// Initialize mermaid diagrams
 async function initMermaidDiagrams(container: HTMLElement) {
 	const mermaidBlocks = container.querySelectorAll('.mermaid-block');
 
@@ -503,68 +567,6 @@ async function initMermaidDiagrams(container: HTMLElement) {
 				}
 			});
 		});
-
-		// Preprocess mermaid code to fix common issues
-		const preprocessMermaidCode = (code: string): string => {
-			let processed = code
-				// Replace <br/> and <br /> with proper line break syntax for mermaid
-				// In mermaid, you can use <br> (without slash) inside node labels
-				.replace(/<br\s*\/>/gi, '<br>')
-				.trim();
-
-			// For erDiagram: quote entity names with hyphens or special characters
-			// Match erDiagram entity definitions like: EntityName { or EntityName {
-			if (processed.includes('erDiagram')) {
-				// Quote entity names that contain hyphens (but aren't already quoted)
-				// Pattern: match entity names at start of line or after relationship arrows
-				processed = processed.replace(
-					/(^|\s|>|})(\s*)([A-Za-z][A-Za-z0-9]*-[A-Za-z0-9-]*)(\s*[{|\s])/gm,
-					'$1$2"$3"$4'
-				);
-			}
-
-			// For flowchart: quote node labels containing parentheses, brackets, or special chars
-			// Pattern: NodeID[Label] or NodeID["Label"] - quote unquoted labels with special chars
-			// Matches: ID[text with (parens)] but not ID["already quoted"]
-			if (processed.includes('flowchart') || processed.includes('graph')) {
-				// Match node definitions with square brackets that have unquoted labels containing special chars
-				// Node ID pattern: letters, numbers, underscores, some special chars
-				processed = processed.replace(
-					/([A-Za-z_][A-Za-z0-9_]*)\[([^\]"[]*[\(\)\{\}<>][^\]"[]*)\]/g,
-					(nodeId: string, id: string, label: string) => {
-						// If label contains special chars and isn't already quoted, quote it
-						if (label && !label.startsWith('"')) {
-							return `${id}["${label}"]`;
-						}
-						return `${nodeId}[${label}]`;
-					}
-				);
-
-				// Fix subgraph/node ID conflicts: when a node inside a subgraph has the same ID as the subgraph
-				// This causes "Setting X as parent of X would create a cycle" error
-				// Pattern: subgraph ID["label"] ... ID[...] end
-				// Solution: rename the inner node ID by adding a suffix
-				const subgraphMatches = processed.matchAll(/subgraph\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[/g);
-				const subgraphIds = new Set<string>();
-				for (const match of subgraphMatches) {
-					subgraphIds.add(match[1]);
-				}
-
-				// For each subgraph ID, find nodes with the same ID inside subgraphs and rename them
-				for (const subgraphId of subgraphIds) {
-					// Match pattern: subgraphId[label] that appears after a subgraph declaration
-					// We need to be careful to only rename nodes INSIDE subgraphs, not the subgraph declarations themselves
-					// Pattern: look for node definitions that match subgraph ID but aren't part of "subgraph ID["
-					const nodePattern = new RegExp(
-						`(?<!subgraph\\s+)(${subgraphId})(\\[[^\\]]+\\])`,
-						'g'
-					);
-					processed = processed.replace(nodePattern, `$1_Node$2`);
-				}
-			}
-
-			return processed;
-		};
 
 		// Render diagram
 		if (diagramDiv && mermaidCode && diagramDiv.getAttribute('data-initialized') !== 'rendered' && mermaidInstance) {
