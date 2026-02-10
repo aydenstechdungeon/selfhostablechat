@@ -1,4 +1,4 @@
-import { PersistedState } from 'runed';
+import { PersistedState } from '$lib/stores/persisted-state.svelte';
 
 interface UIState {
 	leftSidebarCollapsed: boolean;
