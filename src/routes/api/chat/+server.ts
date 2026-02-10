@@ -1,9 +1,8 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { analyzeAndRoute, type MediaAttachment, isImageGenerationModel, IMAGE_CONVERSION_TOOL } from '$lib/server/ai/router';
+import { analyzeAndRoute, type MediaAttachment, isImageGenerationModel, IMAGE_CONVERSION_TOOL, IMAGE_GENERATION_PROMPT } from '$lib/server/ai/router';
 import { generateChatSummary } from '$lib/server/ai/summarizer';
 import { createSSEStream, createMultiModelStream, createSSEResponse, type StreamChunk } from '$lib/server/ai/streaming';
 import type { OpenRouterMessage, OpenRouterTool } from '$lib/server/ai/openrouter';
-import { IMAGE_GENERATION_PROMPT } from '$lib/server/ai/router';
 import { checkRateLimit } from '$lib/server/ai/rate-limiter';
 
 // Input validation constants

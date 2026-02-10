@@ -7,9 +7,29 @@
 	import MermaidModal from "$lib/components/media/MermaidModal.svelte";
 	import { mermaidModalStore } from "$lib/stores/mermaidModalStore";
 
+	import { onMount } from "svelte";
+
 	let { children } = $props();
 
 	const queryClient = createQueryClient();
+
+	onMount(() => {
+		if ("serviceWorker" in navigator) {
+			navigator.serviceWorker
+				.register("/service-worker.js", { scope: "/" })
+				.then(
+					(registration) => {
+						console.log(
+							"ServiceWorker registration successful with scope: ",
+							registration.scope,
+						);
+					},
+					(err) => {
+						console.log("ServiceWorker registration failed: ", err);
+					},
+				);
+		}
+	});
 </script>
 
 <svelte:head>

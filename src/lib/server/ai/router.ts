@@ -1,5 +1,5 @@
 import { createOpenRouterClient, AUTO_SUPPORTED_MODELS, IMAGE_MODELS, IMAGE_GENERATION_MODELS, ROUTER_MODEL, type OpenRouterMessage } from './openrouter';
-import { AVAILABLE_MODELS } from '$lib/stores/modelStore';
+import { AVAILABLE_MODELS } from '$lib/shared/models';
 
 export interface RouterDecision {
   model: string;
@@ -140,7 +140,7 @@ export async function analyzeAndRoute(
     });
 
     const rawContent = response.choices[0]?.message?.content || '';
-    
+
     // Extract text content from multimodal response if needed
     let content: string;
     if (Array.isArray(rawContent)) {
@@ -152,9 +152,9 @@ export async function analyzeAndRoute(
     } else {
       content = rawContent;
     }
-    
+
     let decision: RouterDecision;
-    
+
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {

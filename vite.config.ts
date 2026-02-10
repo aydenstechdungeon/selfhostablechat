@@ -10,6 +10,12 @@ export default defineConfig({
 	build: {
 		// Disable CSS code splitting to avoid preload warnings
 		// CSS will be inlined into JS chunks instead of separate files
-		cssCodeSplit: false
+		cssCodeSplit: true,
+		chunkSizeWarningLimit: 1600
+	},
+	ssr: {
+		// Bundle all dependencies to avoid issues with node_modules resolution in Electron AppImage
+		// But exclude node built-ins and electron itself (which is provided by the runner)
+		noExternal: /^(?!node:|electron|@electron|@capacitor).*$/
 	}
 });

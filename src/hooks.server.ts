@@ -14,8 +14,10 @@ function isLocalhostOrigin(origin: string, host: string): boolean {
 				: 80;
 		const expectedPort = hostPort ? parseInt(hostPort, 10) : 443;
 
-		// Allow localhost with any of the dev ports regardless of protocol
-		if (originUrl.hostname === 'localhost' && hostName === 'localhost') {
+		const isLocal = (h: string) => h === 'localhost' || h === '127.0.0.1';
+
+		// Allow localhost or 127.0.0.1 with any of the dev ports regardless of protocol
+		if (isLocal(originUrl.hostname) && isLocal(hostName)) {
 			return (
 				ALLOWED_DEV_PORTS.includes(originPort) && ALLOWED_DEV_PORTS.includes(expectedPort)
 			);
@@ -42,7 +44,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 				return new Response('CSRF validation failed: Missing security headers', { status: 403 });
 			}
 
-			const shieldOrigin = origin || (referer ? new URL(referer).origin : null);
+			let shieldOrigin = origin;
+			if (!shieldOrigin && referer) {
+				try {
+					shieldOrigin = new URL(referer).origin;
+				} catch (e) {
+					// Ignore invalid referer
+				}
+			}
 
 			if (!shieldOrigin || !host || !isLocalhostOrigin(shieldOrigin, host)) {
 				console.warn(`CSRF blocked: origin=${origin}, referer=${referer}, host=${host}`);
@@ -51,31 +60,75 @@ export const handle: Handle = async ({ event, resolve }) => {
 		}
 	}
 
-	const response = await resolve(event);
+	let response: Response;
+	try {
+		response = await resolve(event);
+	} catch (err) {
+		console.error('SvelteKit resolve error:', err);
+		const errorHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Internal Server Error</title>
+	<style>
+		body { font-family: system-ui, sans-serif; padding: 2rem; line-height: 1.5; color: #333; }
+		h1 { color: #e53e3e; }
+		pre { background: #f7fafc; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+	</style>
+</head>
+<body>
+	<h1>Internal Server Error</h1>
+	<p>The application encountered an unexpected error.</p>
+	<p>Check server logs for details.</p>
+</body>
+</html>`;
+		return new Response(errorHtml, {
+			status: 500,
+			headers: {
+				'Content-Type': 'text/html; charset=utf-8',
+				'X-Content-Type-Options': 'nosniff'
+			}
+		});
+	}
 
-	// Add security headers
-	response.headers.set('X-Frame-Options', 'SAMEORIGIN');
-	response.headers.set('X-Content-Type-Options', 'nosniff');
-	response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+	// Add security headers safely
+	// Note: Response objects from resolve() can be immutable (e.g. redirects)
+	// We use a try-catch to avoid crashing the server on immutable responses
+	try {
+		response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+		response.headers.set('X-Content-Type-Options', 'nosniff');
+		response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
-	// Content Security Policy for image rendering
-	response.headers.set(
-		'Content-Security-Policy',
-		[
-			"default-src 'self'",
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Svelte needs unsafe-eval in dev
-			"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-			"style-src-elem 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
-			"img-src 'self' data: https: blob:",
-			"font-src 'self' data: https://fonts.gstatic.com",
-			"connect-src 'self' https://openrouter.ai",
-			"frame-ancestors 'self'"
-		].join('; ')
-	);
+		// Content Security Policy for image rendering
+		response.headers.set(
+			'Content-Security-Policy',
+			[
+				"default-src 'self' http://127.0.0.1:* http://localhost:*",
+				"script-src 'self' 'unsafe-inline' 'unsafe-eval' http://127.0.0.1:* http://localhost:*",
+				"style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+				"style-src-elem 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+				"img-src 'self' data: https: blob:",
+				"font-src 'self' data: https://fonts.gstatic.com",
+				"connect-src 'self' https://openrouter.ai http://127.0.0.1:* http://localhost:*",
+				"frame-ancestors 'self'"
+			].join('; ')
+		);
+	} catch (e) {
+		// If response is immutable (like a redirect), we can't set headers directly.
+		// For redirects, security headers are less critical but we could clone the response if needed.
+		// For now, we just log and continue to avoid a 500 error.
+		if (event.url.pathname !== '/api/chat') {
+			// Don't log for common API routes to keep logs clean
+			console.debug('Could not set security headers on immutable response:', event.url.pathname);
+		}
+	}
+
 
 	// CORS headers for API routes
 	if (event.url.pathname.startsWith('/api/')) {
-		response.headers.set('Access-Control-Allow-Origin', event.url.origin);
+		const origin = event.request.headers.get('origin') || event.url.origin;
+		response.headers.set('Access-Control-Allow-Origin', origin);
 		response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 		response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 		response.headers.set('Access-Control-Allow-Credentials', 'true');

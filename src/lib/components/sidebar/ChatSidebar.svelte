@@ -5,7 +5,6 @@
 		Settings,
 		BarChart3,
 		Loader2,
-		MessageSquare,
 	} from "lucide-svelte";
 	import { goto } from "$app/navigation";
 	import { uiStore } from "$lib/stores/uiStore";

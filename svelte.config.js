@@ -12,7 +12,7 @@ const config = {
 			envPrefix: ''
 		}),
 		serviceWorker: {
-			register: true
+			register: false
 		},
 		prerender: isPrerenderEnabled ? {
 			entries: [

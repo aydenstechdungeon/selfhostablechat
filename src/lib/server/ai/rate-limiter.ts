@@ -37,7 +37,7 @@ class RateLimiter {
         lastAccessed: now
       };
       this.limits.set(key, newEntry);
-      
+
       return {
         allowed: true,
         remaining: this.maxRequests - 1,
@@ -57,7 +57,7 @@ class RateLimiter {
     }
 
     entry.count++;
-    
+
     return {
       allowed: true,
       remaining: this.maxRequests - entry.count,
@@ -80,14 +80,14 @@ class RateLimiter {
     // Find and remove the least recently used entry
     let oldestKey: string | null = null;
     let oldestTime = Infinity;
-    
+
     for (const [key, entry] of this.limits.entries()) {
       if (entry.lastAccessed < oldestTime) {
         oldestTime = entry.lastAccessed;
         oldestKey = key;
       }
     }
-    
+
     if (oldestKey) {
       this.limits.delete(oldestKey);
     }
@@ -114,15 +114,14 @@ export const userRateLimiter = new RateLimiter(60, 60000);
 
 export const globalRateLimiter = new RateLimiter(100, 60000);
 
-setInterval(() => {
-  userRateLimiter.cleanup();
-  globalRateLimiter.cleanup();
-}, 60000);
+// Note: Cleanup is handled lazily in the check() method for each key.
+// Explicit cleanup() can be called manually if needed.
+
 
 export function checkRateLimit(userId: string | number): { allowed: boolean; remaining: number; resetTime: number } {
   const userKey = `user:${userId}`;
   const userCheck = userRateLimiter.check(userKey);
-  
+
   if (!userCheck.allowed) {
     return userCheck;
   }
