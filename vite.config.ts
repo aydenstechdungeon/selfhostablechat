@@ -16,6 +16,6 @@ export default defineConfig({
 	ssr: {
 		// Bundle all dependencies to avoid issues with node_modules resolution in Electron AppImage
 		// But exclude node built-ins and electron itself (which is provided by the runner)
-		noExternal: /^(?!node:|electron|@electron|@capacitor).*$/
+		noExternal: /^(?!node:|electron|@electron|@capacitor|highlight\.js).*$/
 	}
 });

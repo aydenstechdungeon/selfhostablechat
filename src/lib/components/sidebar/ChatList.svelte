@@ -312,22 +312,32 @@
         title={collapsed ? chat.title : ""}
       >
         {#if collapsed}
-          <!-- Collapsed View: Icon / Initials -->
-          <div
-            class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-xs font-bold"
-            style:color={textPrimary}
-          >
-            {chat.title.slice(0, 2).toUpperCase()}
+          <!-- Collapsed View: Icon / Initials with status indicator ring -->
+          <div class="relative">
+            <div
+              class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-xs font-bold"
+              class:ring-2={chatStreamState?.isStreaming || chatStreamState?.hasNewMessages}
+              class:ring-blue-500={chatStreamState?.isStreaming}
+              class:ring-green-500={chatStreamState?.hasNewMessages}
+              class:animate-pulse={chatStreamState?.isStreaming}
+              style:color={textPrimary}
+            >
+              {chat.title.slice(0, 2).toUpperCase()}
+            </div>
+            {#if chatStreamState?.isStreaming}
+              <div
+                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-900 flex items-center justify-center"
+                title="Generating..."
+              >
+                <Loader2 size={8} class="animate-spin text-white" />
+              </div>
+            {:else if chatStreamState?.hasNewMessages}
+              <div
+                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-900"
+                title="New messages"
+              ></div>
+            {/if}
           </div>
-          {#if chatStreamState?.isStreaming}
-            <div
-              class="absolute top-1 right-1 w-2 h-2 rounded-full bg-blue-500 animate-pulse"
-            ></div>
-          {:else if chatStreamState?.hasNewMessages}
-            <div
-              class="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-500"
-            ></div>
-          {/if}
         {:else}
           <div class="row-left flex-1 min-w-0">
             <div class="flex items-center gap-2 mb-1">
