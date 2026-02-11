@@ -110,7 +110,7 @@ const createUIStore = () => {
       saveToStorage(newState);
       return newState;
     }),
-    setMultiModelDisplayMode: (mode: 'split' | 'stacked' | 'tabbed') => 
+    setMultiModelDisplayMode: (mode: 'split' | 'stacked' | 'tabbed') =>
       update(state => {
         const newState = { ...state, multiModelDisplayMode: mode };
         saveToStorage(newState);

@@ -1,6 +1,19 @@
 import { marked } from 'marked';
-import hljs from 'highlight.js';
 import DOMPurify from 'dompurify';
+
+// Lazy-loaded highlight.js instance to avoid SSR issues
+let hljsInstance: typeof import('highlight.js').default | null = null;
+let hljsLoadPromise: Promise<typeof import('highlight.js').default> | null = null;
+
+async function getHighlightJS() {
+	if (!hljsInstance) {
+		if (!hljsLoadPromise) {
+			hljsLoadPromise = import('highlight.js').then(m => m.default);
+		}
+		hljsInstance = await hljsLoadPromise;
+	}
+	return hljsInstance;
+}
 
 // Configure marked with syntax highlighting
 marked.use({
@@ -43,10 +56,12 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
  </div>`;
 	}
 
-	const validLanguage = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
-	const highlighted = hljs.highlight(text, { language: validLanguage }).value;
+	// For SSR or when hljs isn't loaded yet, return plain code
+	// The client-side will re-render with highlighting
+	const escapedText = escapeHtml(text);
+	const validLanguage = lang || 'plaintext';
 
-	return `<div class="code-block relative group my-4 rounded-lg overflow-hidden bg-[#1a1f2e] border border-[#2d3748]" id="${codeId}">
+	return `<div class="code-block relative group my-4 rounded-lg overflow-hidden bg-[#1a1f2e] border border-[#2d3748]" id="${codeId}" data-needs-highlighting="true" data-code-lang="${validLanguage}" data-code-text="${encodeURIComponent(text)}">
     <div class="code-header flex items-center justify-between px-4 py-2 bg-[#0f1419] border-b border-[#2d3748]">
       <span class="text-xs text-[#a0aec0] font-mono">${validLanguage}</span>
       <div class="flex items-center gap-2">
@@ -60,7 +75,7 @@ renderer.code = ({ text, lang }: { text: string; lang?: string }) => {
         </button>
       </div>
     </div>
-    <pre class="m-0 p-4 overflow-x-auto"><code class="hljs language-${validLanguage}">${highlighted}</code></pre>
+    <pre class="m-0 p-4 overflow-x-auto"><code class="language-${validLanguage}">${escapedText}</code></pre>
   </div>`;
 };
 
@@ -292,7 +307,33 @@ export function clearMarkdownCache(): void {
 const initializedBlocks = new Set<string>();
 
 // Initialize copy and download buttons after DOM update
-export function initCodeCopyButtons(container: HTMLElement) {
+export async function initCodeCopyButtons(container: HTMLElement) {
+	// Apply syntax highlighting to code blocks that need it (client-side only)
+	if (typeof window !== 'undefined') {
+		const codeBlocks = container.querySelectorAll('.code-block[data-needs-highlighting="true"]');
+		if (codeBlocks.length > 0) {
+			try {
+				const hljs = await getHighlightJS();
+				codeBlocks.forEach(block => {
+					const codeElement = block.querySelector('code');
+					const lang = block.getAttribute('data-code-lang') || 'plaintext';
+					const encodedText = block.getAttribute('data-code-text') || '';
+					const text = decodeURIComponent(encodedText);
+
+					if (codeElement && text) {
+						const validLanguage = lang && hljs.getLanguage(lang) ? lang : 'plaintext';
+						const highlighted = hljs.highlight(text, { language: validLanguage }).value;
+						codeElement.innerHTML = highlighted;
+						codeElement.classList.add('hljs');
+						block.removeAttribute('data-needs-highlighting');
+					}
+				});
+			} catch (err) {
+				console.error('Failed to apply syntax highlighting:', err);
+			}
+		}
+	}
+
 	// Handle copy buttons
 	const buttons = container.querySelectorAll('.copy-btn');
 	buttons.forEach(btn => {

@@ -173,7 +173,7 @@
 	class="app-shell grid h-full overflow-hidden transition-colors duration-200 relative"
 	style:background-color={colors.bg}
 	style:grid-template-columns="{leftSidebarCollapsed
-		? '64px'
+		? '80px'
 		: leftSidebarWidth + 'px'} 1fr"
 >
 	<!-- Mobile Overlay -->

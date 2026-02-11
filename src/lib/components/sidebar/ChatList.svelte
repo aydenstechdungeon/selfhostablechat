@@ -292,10 +292,13 @@
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="chat-row w-full flex items-center gap-3 px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 mb-1 group hover:translate-x-1"
+        class="chat-row w-full flex gap-3 py-3 rounded-lg cursor-pointer transition-all duration-200 mb-1 group relative"
         class:animate-fade-in-up={!isAnyChatStreaming && isInitialLoad}
-        class:justify-center={collapsed}
-        class:px-0={collapsed}
+        class:flex-col={collapsed}
+        class:items-center={!collapsed}
+        class:px-3={!collapsed}
+        class:px-2={collapsed}
+        class:hover:translate-x-1={!collapsed}
         style:background-color={activeChatId === chat.id
           ? activeBg
           : "transparent"}
@@ -312,31 +315,29 @@
         title={collapsed ? chat.title : ""}
       >
         {#if collapsed}
-          <!-- Collapsed View: Icon / Initials with status indicator ring -->
-          <div class="relative">
-            <div
-              class="w-8 h-8 rounded-full flex items-center justify-center bg-gray-200 dark:bg-gray-700 text-xs font-bold"
-              class:ring-2={chatStreamState?.isStreaming || chatStreamState?.hasNewMessages}
-              class:ring-blue-500={chatStreamState?.isStreaming}
-              class:ring-green-500={chatStreamState?.hasNewMessages}
-              class:animate-pulse={chatStreamState?.isStreaming}
-              style:color={textPrimary}
-            >
-              {chat.title.slice(0, 2).toUpperCase()}
-            </div>
+          <!-- Collapsed View: Simplified without avatar -->
+          <div class="flex flex-col items-center gap-2 w-full relative">
             {#if chatStreamState?.isStreaming}
-              <div
-                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-white dark:border-gray-900 flex items-center justify-center"
-                title="Generating..."
-              >
-                <Loader2 size={8} class="animate-spin text-white" />
-              </div>
+              <div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
             {:else if chatStreamState?.hasNewMessages}
-              <div
-                class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-500 border-2 border-white dark:border-gray-900"
-                title="New messages"
-              ></div>
+              <div class="w-2 h-2 rounded-full bg-green-500"></div>
+            {:else}
+              <div class="w-2 h-2"></div>
             {/if}
+            <span
+              class="timestamp text-[9px] whitespace-nowrap"
+              style:color={textSecondary}
+            >
+              {$now && formatRelativeTime(new Date(chat.updatedAt))}
+            </span>
+            <button
+              class="opacity-100 p-1 rounded-lg transition-all duration-200 hover:text-red-500 hover:bg-red-500/10 hover:scale-110 active:scale-95"
+              style:color={textSecondary}
+              onclick={(e) => openDeleteModal(chat.id, e)}
+              title="Delete chat"
+            >
+              <Trash2 size={12} />
+            </button>
           </div>
         {:else}
           <div class="row-left flex-1 min-w-0">
@@ -368,22 +369,24 @@
           </div>
         {/if}
 
-        <div class="row-right flex-shrink-0 flex items-center gap-2">
-          <span
-            class="timestamp text-[11px] whitespace-nowrap"
-            style:color={textSecondary}
-          >
-            {$now && formatRelativeTime(new Date(chat.updatedAt))}
-          </span>
-          <button
-            class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all duration-200 hover:text-red-500 hover:bg-red-500/10 hover:scale-110 active:scale-95"
-            style:color={textSecondary}
-            onclick={(e) => openDeleteModal(chat.id, e)}
-            title="Delete chat"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
+        {#if !collapsed}
+          <div class="row-right flex-shrink-0 flex items-center gap-2">
+            <span
+              class="timestamp text-[11px] whitespace-nowrap"
+              style:color={textSecondary}
+            >
+              {$now && formatRelativeTime(new Date(chat.updatedAt))}
+            </span>
+            <button
+              class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all duration-200 hover:text-red-500 hover:bg-red-500/10 hover:scale-110 active:scale-95"
+              style:color={textSecondary}
+              onclick={(e) => openDeleteModal(chat.id, e)}
+              title="Delete chat"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        {/if}
       </div>
     {/each}
 

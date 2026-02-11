@@ -6,7 +6,6 @@
 	import { createQueryClient } from "$lib/query/client";
 	import MermaidModal from "$lib/components/media/MermaidModal.svelte";
 	import { mermaidModalStore } from "$lib/stores/mermaidModalStore";
-	import { dev } from "$app/environment";
 
 	import { onMount } from "svelte";
 
@@ -15,10 +14,9 @@
 	const queryClient = createQueryClient();
 
 	onMount(() => {
-		// Only register service worker in production (doesn't work in dev with Vite)
-		if (!dev && "serviceWorker" in navigator) {
+		if ("serviceWorker" in navigator) {
 			navigator.serviceWorker
-				.register("/service-worker.js", { scope: "/" })
+				.register("/service-worker.js", { scope: "/", type: "module" })
 				.then(
 					(registration) => {
 						console.log(

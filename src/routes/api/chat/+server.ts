@@ -6,7 +6,7 @@ import type { OpenRouterMessage, OpenRouterTool } from '$lib/server/ai/openroute
 import { checkRateLimit } from '$lib/server/ai/rate-limiter';
 
 // Input validation constants
-const MAX_MESSAGE_LENGTH = 10000;
+const MAX_MESSAGE_LENGTH = 50000;
 const MAX_CONVERSATION_HISTORY = 100;
 const ALLOWED_MODELS = new Set([
   'openai/gpt-oss-20b:free', 'openai/gpt-oss-20b',
