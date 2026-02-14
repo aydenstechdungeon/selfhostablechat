@@ -12,7 +12,8 @@ Keep it short, clear, and specific.`;
 
 export async function generateChatSummary(
   messages: Array<{ role: string; content: string | any[] }>,
-  apiKey: string
+  apiKey: string,
+  zeroDataRetention?: boolean
 ): Promise<string> {
   const client = createOpenRouterClient(apiKey);
 
@@ -53,15 +54,21 @@ export async function generateChatSummary(
   ];
 
   try {
-    const response = await client.createCompletion({
+    const request: any = {
       model: SUMMARIZER_MODEL,
       messages: summaryMessages,
       temperature: 0.5,
       max_tokens: 50
-    });
+    };
+
+    if (zeroDataRetention) {
+      request.provider = { zdr: true };
+    }
+
+    const response = await client.createCompletion(request);
 
     let summary = response.choices[0]?.message?.content;
-    
+
     // Handle multimodal response (extract text from array if needed)
     if (Array.isArray(summary)) {
       summary = summary
@@ -69,9 +76,9 @@ export async function generateChatSummary(
         .map((part: any) => part.text)
         .join('');
     }
-    
+
     summary = summary?.trim();
-    
+
     // If no summary or empty, use first user message as fallback
     if (!summary || summary.trim() === '' || summary.toLowerCase() === 'new chat') {
       const firstUserMessage = relevantMessages.find(m => m.role === 'user');
@@ -91,9 +98,9 @@ export async function generateChatSummary(
         summary = 'New Chat';
       }
     }
-    
+
     summary = summary.replace(/^["']|["']$/g, '').trim();
-    
+
     if (summary.length > 60) {
       summary = summary.substring(0, 57) + '...';
     }
@@ -120,7 +127,8 @@ export async function generateChatSummary(
 
 export async function generateStreamingSummary(
   messages: Array<{ role: string; content: string | any[] }>,
-  apiKey: string
+  apiKey: string,
+  zeroDataRetention?: boolean
 ): Promise<AsyncGenerator<string>> {
   const client = createOpenRouterClient(apiKey);
 
@@ -166,13 +174,19 @@ export async function generateStreamingSummary(
     try {
       let summary = '';
       let hasYielded = false;
-      
-      for await (const chunk of client.createStreamingCompletion({
+
+      const request: any = {
         model: SUMMARIZER_MODEL,
         messages: summaryMessages,
         temperature: 0.5,
         max_tokens: 50
-      })) {
+      };
+
+      if (zeroDataRetention) {
+        request.provider = { zdr: true };
+      }
+
+      for await (const chunk of client.createStreamingCompletion(request)) {
         const deltaContent = chunk.choices[0]?.delta?.content;
         if (deltaContent) {
           // Handle multimodal streaming response
@@ -185,7 +199,7 @@ export async function generateStreamingSummary(
           } else {
             textContent = deltaContent;
           }
-          
+
           if (textContent) {
             summary += textContent;
             hasYielded = true;

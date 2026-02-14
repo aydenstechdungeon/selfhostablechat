@@ -33,7 +33,7 @@
     let selectedModels = $derived(new Set($modelStore.selectedModels));
     let autoMode = $derived($modelStore.autoMode);
     let multiModelMode = $derived($modelStore.multiModelMode);
-    let privacyOnlyProviders = $derived($settingsStore.privacyOnlyProviders);
+    let zeroDataRetention = $derived($settingsStore.zeroDataRetention);
 
     // Brand icon mapping
     const brandIcons: Record<string, any> = {
@@ -153,7 +153,7 @@
             privacyFocused: isPrivacyFocusedModel(m.id),
         }));
 
-        if (privacyOnlyProviders) {
+        if (zeroDataRetention) {
             return allModels.filter((m) => m.privacyFocused);
         }
         return allModels;

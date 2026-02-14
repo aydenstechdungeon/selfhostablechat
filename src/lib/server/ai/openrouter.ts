@@ -73,6 +73,13 @@ export interface OpenRouterRequest {
   tool_choice?: 'auto' | 'none' | { type: 'function'; function: { name: string } };
   plugins?: WebSearchPlugin[];
   web_search_options?: WebSearchOptions;
+  provider?: {
+    zdr?: boolean;
+    order?: string[];
+    allow_fallbacks?: boolean;
+    require_parameters?: boolean;
+    data_collection?: 'deny' | 'allow';
+  };
 }
 
 export interface OpenRouterUsage {

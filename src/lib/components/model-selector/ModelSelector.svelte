@@ -206,7 +206,7 @@
 	];
 
 	// Get privacy setting from store
-	let privacyOnlyProviders = $derived($settingsStore.privacyOnlyProviders);
+	let zeroDataRetention = $derived($settingsStore.zeroDataRetention);
 
 	// Map AVAILABLE_MODELS to selector format with privacy filtering
 	let models = $derived(() => {
@@ -226,7 +226,7 @@
 		}));
 
 		// Filter by privacy setting if enabled
-		if (privacyOnlyProviders) {
+		if (zeroDataRetention) {
 			return allModels.filter((m) => m.privacyFocused);
 		}
 		return allModels;
@@ -364,15 +364,14 @@
 			<!-- Header with Multi-Model Toggle and Brand Tabs -->
 			<div style:border-bottom="1px solid {border}">
 				<!-- Privacy Mode Indicator -->
-				{#if privacyOnlyProviders}
+				{#if zeroDataRetention}
 					<div
 						class="px-3 py-1.5 flex items-center gap-2"
 						style:background-color="rgba(72, 187, 120, 0.1)"
 					>
 						<Shield size={14} class="text-[#48bb78]" />
 						<span class="text-xs font-medium text-[#48bb78]"
-							>Privacy Mode: Only showing privacy-focused
-							providers</span
+							>ZDR Mode: Only showing compliant providers</span
 						>
 					</div>
 				{/if}

@@ -16,8 +16,8 @@ const defaultSettings: UserSettings = {
 	fontSize: 14,
 	compactMode: false,
 	codeSyntaxTheme: 'github-dark',
-	privacyOnlyProviders: false,
 	disableChatStoring: false,
+	zeroDataRetention: false,
 	webSearch: {
 		enabled: false,
 		engine: undefined,

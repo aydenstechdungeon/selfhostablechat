@@ -82,7 +82,8 @@ export async function* createSSEStream(
   messages: OpenRouterMessage[],
   imageOptions?: ImageGenerationOptions,
   tools?: OpenRouterTool[],
-  webSearch?: WebSearchConfig
+  webSearch?: WebSearchConfig,
+  zeroDataRetention?: boolean
 ): AsyncGenerator<StreamChunk> {
   const client = createOpenRouterClient(apiKey);
   const startTime = Date.now();
@@ -100,6 +101,13 @@ export async function* createSSEStream(
     temperature: 0.7
   };
 
+  // Add ZDR if requested
+  if (zeroDataRetention) {
+    requestParams.provider = {
+      zdr: true
+    };
+  }
+
   // Add tools if provided
   if (tools && tools.length > 0) {
     requestParams.tools = tools;
@@ -109,7 +117,7 @@ export async function* createSSEStream(
   // Add image generation parameters for image generation models
   if (isImageGenModel) {
     requestParams.modalities = ['text', 'image'];
-    
+
     // Add image config if options provided
     if (imageOptions?.aspectRatio || imageOptions?.imageSize) {
       requestParams.image_config = {};
@@ -132,7 +140,7 @@ export async function* createSSEStream(
         max_results: webSearch.maxResults ?? 5
       };
       requestParams.plugins = [plugin];
-      
+
       // Add web search options for native search
       if (webSearch.searchContextSize) {
         requestParams.web_search_options = {
@@ -145,7 +153,7 @@ export async function* createSSEStream(
   try {
     for await (const chunk of client.createStreamingCompletion(requestParams)) {
       const delta = chunk.choices[0]?.delta;
-      
+
       // Handle annotations/citations from web search
       if (delta?.annotations && Array.isArray(delta.annotations)) {
         for (const annotation of delta.annotations) {
@@ -161,7 +169,7 @@ export async function* createSSEStream(
           };
         }
       }
-      
+
       // Handle images field from image generation models (non-streaming style)
       if (delta?.images && Array.isArray(delta.images)) {
         for (const image of delta.images) {
@@ -178,7 +186,7 @@ export async function* createSSEStream(
           }
         }
       }
-      
+
       // Handle content as string
       if (typeof delta?.content === 'string') {
         fullContent += delta.content;
@@ -188,7 +196,7 @@ export async function* createSSEStream(
           model
         };
       }
-      
+
       // Handle content as array (multimodal responses including images)
       if (Array.isArray(delta?.content)) {
         for (const part of delta.content) {
@@ -220,7 +228,7 @@ export async function* createSSEStream(
         usage = chunk.usage;
       }
     }
-    
+
     // Yield final citations if any
     if (citations.length > 0) {
       yield {
@@ -252,18 +260,18 @@ export async function* createSSEStream(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     // Check if the error is about tool use not being supported
     if (tools && tools.length > 0 && errorMessage.includes('No endpoints found that support tool use')) {
       console.log(`Model ${model} does not support tool use, retrying without tools...`);
-      
+
       // Retry without tools
       const retryParams: Parameters<typeof client.createStreamingCompletion>[0] = {
         model,
         messages,
         temperature: 0.7
       };
-      
+
       // Add image generation parameters for image generation models (without tools)
       if (isImageGenModel) {
         retryParams.modalities = ['text', 'image'];
@@ -277,11 +285,11 @@ export async function* createSSEStream(
           }
         }
       }
-      
+
       try {
         for await (const chunk of client.createStreamingCompletion(retryParams)) {
           const delta = chunk.choices[0]?.delta;
-          
+
           if (typeof delta?.content === 'string') {
             fullContent += delta.content;
             yield {
@@ -290,7 +298,7 @@ export async function* createSSEStream(
               model
             };
           }
-          
+
           if (Array.isArray(delta?.content)) {
             for (const part of delta.content) {
               if (part.type === 'text' && part.text) {
@@ -340,7 +348,7 @@ export async function* createSSEStream(
         return;
       }
     }
-    
+
     console.error('Stream error:', error);
     yield {
       type: 'error',
@@ -356,11 +364,12 @@ export async function* createMultiModelStream(
   messages: OpenRouterMessage[],
   imageOptions?: ImageGenerationOptions,
   tools?: OpenRouterTool[],
-  webSearch?: WebSearchConfig
+  webSearch?: WebSearchConfig,
+  zeroDataRetention?: boolean
 ): AsyncGenerator<MultiStreamChunk> {
   const streams = models.map(model => ({
     model,
-    generator: createSSEStream(apiKey, model, messages, imageOptions, tools, webSearch),
+    generator: createSSEStream(apiKey, model, messages, imageOptions, tools, webSearch, zeroDataRetention),
     stats: { tokensInput: 0, tokensOutput: 0, cost: 0, latency: 0, model }
   }));
 
@@ -399,7 +408,7 @@ export async function* createMultiModelStream(
           aggregatedStats.totalCost += chunk.stats.cost;
           aggregatedStats.averageLatency += chunk.stats.latency;
           aggregatedStats.completedModels += 1;
-          
+
           const multiChunk: MultiStreamChunk = {
             type: 'stats',
             model: stream.model,
@@ -471,13 +480,13 @@ export async function* createMultiModelStream(
 export function createSSEResponse(generator: AsyncGenerator<StreamChunk> | AsyncGenerator<MultiStreamChunk>): Response {
   const encoder = new TextEncoder();
   let isClosed = false;
-  
+
   const stream = new ReadableStream({
     async start(controller) {
       try {
         for await (const chunk of generator) {
           if (isClosed) break;
-          
+
           try {
             const data = `data: ${JSON.stringify(chunk)}\n\n`;
             controller.enqueue(encoder.encode(data));
@@ -490,7 +499,7 @@ export function createSSEResponse(generator: AsyncGenerator<StreamChunk> | Async
             throw enqueueError;
           }
         }
-        
+
         if (!isClosed) {
           try {
             controller.enqueue(encoder.encode('data: [DONE]\n\n'));

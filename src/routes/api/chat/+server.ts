@@ -42,19 +42,14 @@ function isValidApiKey(key: string): boolean {
 // Generate a chat title - uses whatever title is returned without retrying
 async function generateChatTitle(
   messages: Array<{ role: string; content: string | any[] }>,
-  apiKey: string
+  apiKey: string,
+  zeroDataRetention?: boolean
 ): Promise<string> {
+  // Use a weaker model for summarization to save costs
   try {
-    const summary = await generateChatSummary(messages, apiKey);
-    console.log(`[Chat Title Generation] Generated title: "${summary}"`);
-    return summary;
+    return await generateChatSummary(messages, apiKey, zeroDataRetention);
   } catch (error) {
-    console.error('[Chat Title Generation] Error:', error);
-    // Fallback title on error to avoid crashing the stream
-    const firstUserMsg = messages.find(m => m.role === 'user');
-    if (firstUserMsg && typeof firstUserMsg.content === 'string') {
-      return firstUserMsg.content.substring(0, 50) + (firstUserMsg.content.length > 50 ? '...' : '');
-    }
+    console.error('Failed to generate chat title:', error);
     return 'New Chat';
   }
 }
@@ -100,7 +95,7 @@ function processSystemPromptTemplate(prompt: string, modelId: string): string {
 // System prompt for image conversion tool
 const IMAGE_CONVERSION_PROMPT = `You have access to a tool called "convert_image" that can convert images between formats.
 
-When a user asks you to convert an image to a different format (e.g., "convert this image to webp", "make this a png", "convert to jpeg"), you MUST use the convert_image tool.
+When a user asks you to convert an image to a different format (e.g., "convert this image to webp", "make this a png", "make this a jpeg"), you MUST use the convert_image tool.
 
 The tool accepts:
 - image_url: The URL or base64 data URL of the image to convert
@@ -236,7 +231,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
       conversationHistory = [],
       systemPrompt,
       imageOptions,
-      webSearch
+      webSearch,
+      zeroDataRetention
     } = body;
 
     if (!apiKey) {
@@ -286,7 +282,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
     }
 
     if (mode === 'auto') {
-      const routerDecision = await analyzeAndRoute(sanitizedMessage, attachments as MediaAttachment[], apiKey);
+      const routerDecision = await analyzeAndRoute(sanitizedMessage, attachments as MediaAttachment[], apiKey, zeroDataRetention);
 
       // Check if this might be an image conversion request
       const includeConversionTool = isImageConversionRequest(sanitizedMessage);
@@ -307,7 +303,8 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
           role: m.role,
           content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
         })),
-        apiKey
+        apiKey,
+        zeroDataRetention
       );
 
       const streamGenerator = (async function* () {
@@ -318,7 +315,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
         // Process the stream - title will be yielded after streaming completes
         // but both run in parallel
-        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions, tools, webSearch)) {
+        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions, tools, webSearch, zeroDataRetention)) {
           yield chunk;
         }
 
@@ -359,11 +356,12 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
             role: m.role,
             content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content)
           })),
-          apiKey
+          apiKey,
+          zeroDataRetention
         );
 
         // Process the stream
-        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools, webSearch)) {
+        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools, webSearch, zeroDataRetention)) {
           yield chunk as StreamChunk;
         }
 

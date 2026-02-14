@@ -128,6 +128,17 @@ export const AVAILABLE_MODELS = [
         pricePer1M: { input: 0.27, output: 1.10 }
     },
     {
+        id: 'minimax/minimax-m2.5',
+        name: 'MiniMax M2.5',
+        displayName: 'MiniMax M2.5',
+        brand: 'MiniMax',
+        category: 'general',
+        capabilities: ['general', 'coding', 'vision'],
+        supportsImages: true,
+        contextWindow: 262144,
+        pricePer1M: { input: 0.30, output: 1.20 }
+    },
+    {
         id: 'openai/gpt-5.1',
         name: 'GPT 5.1',
         displayName: 'GPT 5.1',
@@ -169,6 +180,17 @@ export const AVAILABLE_MODELS = [
         capabilities: ['general', 'vision', 'coding', 'writing', 'complex'],
         supportsImages: true,
         contextWindow: 200000,
+        pricePer1M: { input: 5.00, output: 25.00 }
+    },
+    {
+        id: 'anthropic/claude-opus-4.6',
+        name: 'Claude Opus 4.6',
+        displayName: 'Claude Opus 4.6',
+        brand: 'Anthropic',
+        category: 'advanced',
+        capabilities: ['general', 'vision', 'coding', 'writing', 'complex'],
+        supportsImages: true,
+        contextWindow: 400000,
         pricePer1M: { input: 5.00, output: 25.00 }
     },
     {
@@ -214,6 +236,17 @@ export const AVAILABLE_MODELS = [
         supportsImages: false,
         contextWindow: 202752,
         pricePer1M: { input: 0.40, output: 1.50 }
+    },
+    {
+        id: 'z-ai/glm-5',
+        name: 'GLM 5',
+        displayName: 'GLM 5',
+        brand: 'Z.AI',
+        category: 'general',
+        capabilities: ['general', 'coding', 'vision'],
+        supportsImages: true,
+        contextWindow: 400000,
+        pricePer1M: { input: 0.80, output: 2.56 }
     },
     {
         id: 'google/gemini-2.5-flash-lite',

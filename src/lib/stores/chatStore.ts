@@ -678,7 +678,8 @@ const createChatStore = () => {
             conversationHistory,
             systemPrompt,
             imageOptions: currentImageOptions,
-            webSearch: webSearchConfig
+            webSearch: webSearchConfig,
+            zeroDataRetention: settings.zeroDataRetention
           })
         });
 
@@ -1130,7 +1131,8 @@ const createChatStore = () => {
             conversationHistory: conversationMessages,
             systemPrompt: systemPromptStore.getEffectivePrompt(),
             imageOptions: state!.imageOptions,
-            webSearch: webSearchConfigSend
+            webSearch: webSearchConfigSend,
+            zeroDataRetention: get(settingsStore).zeroDataRetention
           })
         });
 

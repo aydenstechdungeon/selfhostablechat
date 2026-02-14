@@ -16,9 +16,8 @@ const defaultSettings: UserSettings = {
   fontSize: 14,
   compactMode: false,
   codeSyntaxTheme: 'github-dark',
-  // Privacy-focused settings (default to false for backwards compatibility)
-  privacyOnlyProviders: false,
   disableChatStoring: false,
+  zeroDataRetention: false,
   // Web search settings (default to disabled)
   webSearch: {
     enabled: false,
@@ -30,11 +29,20 @@ const defaultSettings: UserSettings = {
 
 const loadSettings = (): UserSettings => {
   if (typeof window === 'undefined') return defaultSettings;
-  
+
   const stored = localStorage.getItem('userSettings');
   if (stored) {
     try {
-      return { ...defaultSettings, ...JSON.parse(stored) };
+      const parsed = JSON.parse(stored);
+
+      // Migration: enable ZDR if privacyOnlyProviders was enabled
+      if (parsed.privacyOnlyProviders === true) {
+        parsed.zeroDataRetention = true;
+        // Clean up old setting
+        delete parsed.privacyOnlyProviders;
+      }
+
+      return { ...defaultSettings, ...parsed };
     } catch (e) {
       console.error('Failed to parse stored settings:', e);
     }
@@ -44,18 +52,18 @@ const loadSettings = (): UserSettings => {
 
 const createSettingsStore = () => {
   const { subscribe, set, update } = writable<UserSettings>(loadSettings());
-  
+
   // Debounce timer for localStorage writes
   let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 
   const saveToLocalStorage = (settings: UserSettings) => {
     if (typeof window === 'undefined') return;
-    
+
     // Clear pending save
     if (saveTimeout) {
       clearTimeout(saveTimeout);
     }
-    
+
     // Debounce localStorage writes to prevent blocking main thread
     saveTimeout = setTimeout(() => {
       try {

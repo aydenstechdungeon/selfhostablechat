@@ -101,7 +101,8 @@ function isImageGenerationRequest(message: string): boolean {
 export async function analyzeAndRoute(
   userMessage: string,
   attachments: MediaAttachment[] = [],
-  apiKey: string
+  apiKey: string,
+  zeroDataRetention?: boolean
 ): Promise<RouterDecision> {
   if (attachments.some(a => a.type === 'image' || a.type === 'video')) {
     return {
@@ -132,12 +133,18 @@ export async function analyzeAndRoute(
   ];
 
   try {
-    const response = await client.createCompletion({
+    const request: any = {
       model: ROUTER_MODEL,
       messages,
       temperature: 0.3,
       max_tokens: 150
-    });
+    };
+
+    if (zeroDataRetention) {
+      request.provider = { zdr: true };
+    }
+
+    const response = await client.createCompletion(request);
 
     const rawContent = response.choices[0]?.message?.content || '';
 

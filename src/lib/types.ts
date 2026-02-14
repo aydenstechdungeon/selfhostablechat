@@ -270,8 +270,8 @@ export interface UserSettings {
   compactMode: boolean;
   codeSyntaxTheme: string;
   // Privacy-focused settings
-  privacyOnlyProviders: boolean;
   disableChatStoring: boolean;
+  zeroDataRetention: boolean;
   // Web search settings
   webSearch: {
     enabled: boolean;

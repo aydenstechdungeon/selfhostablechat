@@ -1219,7 +1219,7 @@
 							</h3>
 
 							<div class="space-y-6">
-								<!-- Privacy-Only Providers -->
+								<!-- Zero Data Retention -->
 								<div
 									class="p-4 rounded-lg border"
 									style:border-color={border}
@@ -1230,10 +1230,10 @@
 										<input
 											type="checkbox"
 											class="w-5 h-5 rounded text-primary-500 focus:ring-primary-500 mt-0.5"
-											checked={settings.privacyOnlyProviders}
+											checked={settings.zeroDataRetention}
 											onchange={(e) =>
 												updateSetting(
-													"privacyOnlyProviders",
+													"zeroDataRetention",
 													e.currentTarget.checked,
 												)}
 										/>
@@ -1242,20 +1242,19 @@
 												class="text-sm font-semibold"
 												style:color={textPrimary}
 											>
-												Use Privacy-Focused Providers
-												Only
+												Zero Data Retention (ZDR)
 											</div>
 											<p
 												class="text-sm mt-1"
 												style:color={textSecondary}
 											>
-												Only use AI providers with zero
-												data retention policies (e.g.,
-												Anthropic, Google, DeepSeek).
-												This helps ensure your
-												conversations are not stored or
-												used for training by the model
-												providers.
+												Enforce Zero Data Retention for
+												all requests. When enabled,
+												requests will only be routed to
+												endpoints that strictly support
+												ZDR policies, and compliant
+												providers will be prioritized in
+												the model selector.
 											</p>
 										</div>
 									</label>
