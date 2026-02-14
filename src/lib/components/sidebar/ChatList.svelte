@@ -42,7 +42,22 @@
   const CHATS_PER_PAGE = 20;
   let visibleCount = $state(CHATS_PER_PAGE);
   let isLoadingMore = $state(false);
-  let hasMore = $derived(visibleCount < filteredChats.length);
+
+  let hasMoreInDB = $state(true);
+  let areAllChatsLoaded = $state(false);
+
+  let isSimpleView = $derived(
+    !searchQuery &&
+      filters.dateRange === "all" &&
+      filters.minCost === null &&
+      filters.maxCost === null &&
+      filters.selectedModels.length === 0 &&
+      filters.sortBy === "recent",
+  );
+
+  let hasMore = $derived(
+    visibleCount < filteredChats.length || (isSimpleView && hasMoreInDB),
+  );
   let scrollContainer: HTMLDivElement | null = $state(null);
 
   let deleteModalOpen = $state(false);
@@ -85,7 +100,31 @@
       isLoading = true;
     }
     try {
-      const newChats = await chatDB.getAllChats();
+      let newChats: StoredChat[];
+
+      if (isSimpleView && !areAllChatsLoaded) {
+        // If preserving scroll/state (like during streaming updates), ensure we keep existing items
+        // Otherwise load just the first page
+        const limit = preserveScroll
+          ? Math.max(allChats.length, CHATS_PER_PAGE)
+          : CHATS_PER_PAGE;
+
+        newChats = await chatDB.getChats({ limit, offset: 0 });
+
+        // If we got fewer chats than requested, or exactly the requested amount but it's small, checks
+        // For strict correctness we might need a count query, but this heuristic works for infinite scroll
+        // If we got less than limit, we definitely reached the end.
+        if (newChats.length < limit) {
+          hasMoreInDB = false;
+        } else {
+          hasMoreInDB = true;
+        }
+      } else {
+        newChats = await chatDB.getAllChats();
+        areAllChatsLoaded = true;
+        hasMoreInDB = false;
+      }
+
       const newCount = newChats.length;
 
       // Detect if this is just a completion update (same count but state change)
@@ -204,7 +243,26 @@
     // Simulate a small delay for smooth UX
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    visibleCount += CHATS_PER_PAGE;
+    if (visibleCount < filteredChats.length) {
+      visibleCount += CHATS_PER_PAGE;
+    } else if (isSimpleView && hasMoreInDB) {
+      // Fetch next page
+      const currentLength = allChats.length;
+      const nextChats = await chatDB.getChats({
+        limit: CHATS_PER_PAGE,
+        offset: currentLength,
+      });
+
+      if (nextChats.length < CHATS_PER_PAGE) {
+        hasMoreInDB = false;
+      }
+
+      if (nextChats.length > 0) {
+        allChats = [...allChats, ...nextChats];
+        visibleCount += nextChats.length;
+      }
+    }
+
     isLoadingMore = false;
   }
 
@@ -212,6 +270,13 @@
   $effect(() => {
     // Reset to first page when filters change
     visibleCount = CHATS_PER_PAGE;
+  });
+
+  // Reload all chats if we leave simple view and haven't loaded everything
+  $effect(() => {
+    if (!isSimpleView && !areAllChatsLoaded) {
+      loadChats();
+    }
   });
 
   let activeChatId = $derived($page.params.id);
@@ -399,10 +464,6 @@
         <div class="flex items-center gap-2" style:color={textSecondary}>
           <Loader2 size={16} class="animate-spin" />
           <span class="text-xs">Loading more...</span>
-        </div>
-      {:else if hasMore}
-        <div class="text-xs" style:color={textSecondary}>
-          Scroll for more ({filteredChats.length - visibleCount} remaining)
         </div>
       {:else if filteredChats.length > CHATS_PER_PAGE}
         <div class="text-xs" style:color={textSecondary}>

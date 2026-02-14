@@ -232,6 +232,49 @@ class ChatDatabase {
     });
   }
 
+  async getChats(options: { limit?: number; offset?: number } = {}): Promise<StoredChat[]> {
+    const { limit = 20, offset = 0 } = options;
+
+    // We categorize pagination requests for deduping
+    const requestKey = `chats:${limit}:${offset}`;
+
+    return this.dedupeRequest(requestKey, async () => {
+      if (!this.db) await this.init();
+
+      return new Promise((resolve, reject) => {
+        const transaction = this.db!.transaction(['chats'], 'readonly');
+        const store = transaction.objectStore('chats');
+        const index = store.index('updatedAt');
+        const request = index.openCursor(null, 'prev');
+
+        const chats: StoredChat[] = [];
+        let hasAdvanced = false;
+
+        request.onsuccess = (event) => {
+          const cursor = (event.target as IDBRequest).result;
+          if (cursor) {
+            if (offset > 0 && !hasAdvanced) {
+              hasAdvanced = true;
+              cursor.advance(offset);
+              return;
+            }
+
+            chats.push(cursor.value);
+            if (chats.length < limit) {
+              cursor.continue();
+            } else {
+              resolve(chats);
+            }
+          } else {
+            resolve(chats);
+          }
+        };
+
+        request.onerror = () => reject(request.error);
+      });
+    });
+  }
+
   async getChat(chatId: string): Promise<StoredChat | null> {
     return this.dedupeRequest(`chat:${chatId}`, async () => {
       // Check cache first
