@@ -720,6 +720,11 @@ class ChatDatabase {
       transaction.onerror = () => reject(transaction.error);
     });
   }
+
+  // Clear in-memory cache
+  clearCache(): void {
+    this.cache.clear();
+  }
 }
 
 export const chatDB = new ChatDatabase();

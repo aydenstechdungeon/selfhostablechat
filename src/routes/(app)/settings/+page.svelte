@@ -17,6 +17,7 @@
 		CheckSquare,
 		Square,
 		Menu,
+		RefreshCcw,
 	} from "lucide-svelte";
 
 	// Modal state
@@ -402,6 +403,32 @@
 			selectedChats = new Set();
 		} else {
 			selectedChats = new Set(chats.map((c) => c.id));
+		}
+	}
+
+	// Clear application cache
+	async function clearAppCache() {
+		try {
+			// Clear Service Worker Cache API
+			if (typeof window !== "undefined" && "caches" in window) {
+				const cacheNames = await caches.keys();
+				await Promise.all(
+					cacheNames.map((name) => caches.delete(name)),
+				);
+			}
+
+			// Clear Session Storage
+			if (typeof window !== "undefined") {
+				sessionStorage.clear();
+			}
+
+			// Invalidate chatDB cache
+			chatDB.clearCache();
+
+			toastStore.show("Cache cleared successfully", "success");
+		} catch (error) {
+			console.error("Failed to clear cache:", error);
+			toastStore.show("Failed to clear cache", "error");
 		}
 	}
 
@@ -1667,6 +1694,46 @@
 									>
 										<Upload size={16} />
 										Import and Replace
+									</button>
+								</div>
+							</div>
+						</div>
+
+						<!-- Clear Cache -->
+						<div
+							class="setting-group p-4 rounded-lg border"
+							style:border-color={border}
+						>
+							<div class="flex items-start gap-4">
+								<div class="p-3 rounded-lg bg-gray-500/10">
+									<RefreshCcw
+										size={24}
+										class="text-gray-500"
+									/>
+								</div>
+								<div class="flex-1">
+									<h3
+										class="text-sm font-semibold mb-1"
+										style:color={textPrimary}
+									>
+										Clear Application Cache
+									</h3>
+									<p
+										class="text-sm mb-3"
+										style:color={textSecondary}
+									>
+										Clear the internal application cache,
+										service worker storage, and session
+										data. This can help resolve display
+										issues.
+									</p>
+									<button
+										class="px-4 py-2 rounded-lg text-sm font-medium border border-gray-500/50 hover:bg-gray-500/10 transition-colors flex items-center gap-2"
+										style:color={textPrimary}
+										onclick={clearAppCache}
+									>
+										<RefreshCcw size={16} />
+										Clear Cache
 									</button>
 								</div>
 							</div>
