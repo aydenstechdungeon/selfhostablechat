@@ -16,6 +16,7 @@
 		"electron:build": "NODE_OPTIONS=\"--max-old-space-size=8192\" bun run build && electron-builder",
 		"electron:build:linux": "NODE_OPTIONS=\"--max-old-space-size=8192\" bun run build && electron-builder --linux",
 		"electron:build:win": "NODE_OPTIONS=\"--max-old-space-size=8192\" bun run build && electron-builder --win",
+		"electron:build:mac": "NODE_OPTIONS=\"--max-old-space-size=8192\" bun run build && electron-builder --mac",
 		"desktop": "bun run electron:dev",
 		"desktop:build": "bun run electron:build",
 		"capacitor:build": "node scripts/build-capacitor.js",

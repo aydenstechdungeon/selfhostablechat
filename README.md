@@ -2,6 +2,27 @@
 
 A modern, feature-rich AI chat application built with SvelteKit and OpenRouter, supporting multi-model conversations with intelligent auto-routing, streaming responses, and comprehensive analytics.
 
+## Table of Contents
+
+- [Features](#-features)
+- [Quick Start](#-quick-start)
+- [Docker Deployment](#-docker-deployment)
+- [Desktop App (Electron)](#️-desktop-app-electron)
+  - [Linux](#running-the-linux-appimage)
+  - [Windows](#build)
+  - [macOS](#building-for-macos)
+- [Mobile App (Android via Capacitor)](#-mobile-app-android-via-capacitor)
+- [Project Structure](#-project-structure)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [Development](#️-development)
+- [Security Considerations](#-security-considerations)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+- [Support](#-support)
+
 ## ✨ Features
 
 ### 🤖 AI Capabilities
@@ -191,6 +212,128 @@ dnf install fuse fuse-libs
 - **Linux**: `.AppImage` (portable, self-contained)
 - **Windows**: `.exe` with NSIS installer
 - **macOS**: `.dmg` image
+
+### Building for macOS
+
+Building for macOS requires additional setup and considerations compared to Linux/Windows.
+
+#### Prerequisites
+
+1. **macOS machine**: You must build on a Mac (cannot cross-compile from Linux/Windows)
+2. **Xcode Command Line Tools**: `xcode-select --install`
+3. **Apple Developer Account** (optional, for code signing and notarization)
+
+#### Build Commands
+
+```bash
+# Build for macOS (DMG)
+bun run electron:build:mac
+
+# Or build for all platforms (requires macOS for Mac builds)
+bun run electron:build
+```
+
+The built `.dmg` file will be in `dist-electron/`.
+
+#### Code Signing (Optional but Recommended)
+
+For distribution outside the Mac App Store, you should code-sign your app:
+
+1. **Get a Developer Certificate** from Apple Developer Program ($99/year)
+2. **Set up signing** in `electron-builder.json`:
+   ```json
+   {
+     "mac": {
+       "identity": "Developer ID Application: Your Name (TEAM_ID)",
+       "hardenedRuntime": true,
+       "gatekeeperAssess": false,
+       "entitlements": "electron/entitlements.mac.plist",
+       "entitlementsInherit": "electron/entitlements.mac.plist"
+     }
+   }
+   ```
+3. **Create entitlements file** at `electron/entitlements.mac.plist`:
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+       <key>com.apple.security.cs.allow-jit</key>
+       <true/>
+       <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+       <true/>
+       <key>com.apple.security.cs.disable-library-validation</key>
+       <true/>
+   </dict>
+   </plist>
+   ```
+
+#### Notarization (Required for Gatekeeper)
+
+Starting macOS 10.15, apps must be notarized by Apple to run without warnings:
+
+1. **Generate an App-Specific Password** at appleid.apple.com
+2. **Set environment variables**:
+   ```bash
+   export APPLE_ID="your-apple-id@email.com"
+   export APPLE_APP_SPECIFIC_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+   export APPLE_TEAM_ID="YOUR_TEAM_ID"
+   ```
+3. **Add notarization config** to `electron-builder.json`:
+   ```json
+   {
+     "afterSign": "electron/notarize.js"
+   }
+   ```
+4. **Create notarize script** at `electron/notarize.js`:
+   ```js
+   const { notarize } = require('@electron/notarize');
+
+   exports.default = async function notarizing(context) {
+     const { electronPlatformName, appOutDir } = context;
+     if (electronPlatformName !== 'darwin') return;
+
+     const appName = context.packager.appInfo.productFilename;
+     return await notarize({
+       appPath: `${appOutDir}/${appName}.app`,
+       appleId: process.env.APPLE_ID,
+       appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD,
+       teamId: process.env.APPLE_TEAM_ID,
+     });
+   };
+   ```
+
+#### Running Unsigned Builds
+
+Unsigned builds will work but users will see a warning. To bypass:
+
+```bash
+# Right-click the app → Open → Open (or)
+xattr -cr dist-electron/mac-arm64/SelfHostableChat.app
+```
+
+#### Universal Binaries (Intel + Apple Silicon)
+
+To build a universal binary that runs on both Intel and Apple Silicon Macs:
+
+```json
+{
+  "mac": {
+    "target": [
+      { "target": "universal", "arch": ["x64", "arm64"] }
+    ]
+  }
+}
+```
+
+Or build separately:
+```bash
+# Intel Macs
+bun run electron:build:mac --x64
+
+# Apple Silicon Macs
+bun run electron:build:mac --arm64
+```
 
 ### Desktop App Features
 
@@ -450,10 +593,11 @@ bun run desktop:build
 - [x] Image generation support (Gemini models)
 - [x] Web search integration with citations
 - [x] Message branching/edit history
+- [ ] Finish Android and get it running
 - [ ] iOS app support (Capacitor)
 - [ ] Advanced analytics charts
-- [ ] Export/import conversations
-- [ ] Custom model configurations
+- [x] Export/import conversations
+- [x] Custom model configurations
 - [ ] Voice input support
 - [ ] Plugin system
 
