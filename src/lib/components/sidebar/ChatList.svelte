@@ -5,7 +5,7 @@
   import { formatRelativeTime } from "$lib/utils/helpers";
   import { chatDB, type StoredChat } from "$lib/stores/indexedDB";
   import { now } from "$lib/stores/timeStore";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, untrack } from "svelte";
   import { Trash2, Loader2 } from "lucide-svelte";
   import ConfirmModal from "$lib/components/ui/ConfirmModal.svelte";
   import {
@@ -28,12 +28,26 @@
   let filteredChats: StoredChat[] = $state([]);
   let isFiltering = $state(false);
 
-  // Async filtering effect
+  // Async filtering effect with proper dependency tracking
   $effect(() => {
+    // Track filter dependencies explicitly by reading them
+    const currentFilters = {
+      sortBy: filters.sortBy,
+      dateRange: filters.dateRange,
+      minCost: filters.minCost,
+      maxCost: filters.maxCost,
+      selectedModels: filters.selectedModels,
+      searchQuery: filters.searchQuery,
+      searchMode: filters.searchMode,
+    };
+
     const doFilter = async () => {
       isFiltering = true;
-      filteredChats = await filterAndSortChats(allChats, filters);
-      isFiltering = false;
+      try {
+        filteredChats = await filterAndSortChats(allChats, currentFilters);
+      } finally {
+        isFiltering = false;
+      }
     };
     doFilter();
   });
@@ -42,6 +56,7 @@
   const CHATS_PER_PAGE = 20;
   let visibleCount = $state(CHATS_PER_PAGE);
   let isLoadingMore = $state(false);
+  let loadMoreAbortController: AbortController | null = null;
 
   let hasMoreInDB = $state(true);
   let areAllChatsLoaded = $state(false);
@@ -188,17 +203,24 @@
 
     window.addEventListener("chat-updated", handleChatUpdate);
 
-    // Set up intersection observer for infinite scroll
-    if (scrollContainer) {
-      setupIntersectionObserver();
-    }
-
     return () => {
       window.removeEventListener("chat-updated", handleChatUpdate);
       if (debounceTimer) clearTimeout(debounceTimer);
       if (observer) {
         observer.disconnect();
       }
+    };
+  });
+
+  // Set up intersection observer when scrollContainer and loadMoreTrigger are ready
+  $effect(() => {
+    if (scrollContainer && loadMoreTrigger) {
+      observer?.disconnect();
+      setupIntersectionObserver();
+    }
+
+    return () => {
+      observer?.disconnect();
     };
   });
 
@@ -227,49 +249,72 @@
     observer.observe(loadMoreTrigger);
   }
 
-  // Re-setup observer when loadMoreTrigger changes
-  $effect(() => {
-    if (loadMoreTrigger && observer) {
-      observer.disconnect();
-      setupIntersectionObserver();
-    }
-  });
-
   async function loadMore() {
     if (isLoadingMore || !hasMore) return;
 
+    // Cancel any in-flight loadMore request
+    loadMoreAbortController?.abort();
+    loadMoreAbortController = new AbortController();
+    const signal = loadMoreAbortController.signal;
+
     isLoadingMore = true;
 
-    // Simulate a small delay for smooth UX
+    // Small delay for smooth UX
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    if (visibleCount < filteredChats.length) {
-      visibleCount += CHATS_PER_PAGE;
-    } else if (isSimpleView && hasMoreInDB) {
-      // Fetch next page
-      const currentLength = allChats.length;
-      const nextChats = await chatDB.getChats({
-        limit: CHATS_PER_PAGE,
-        offset: currentLength,
-      });
-
-      if (nextChats.length < CHATS_PER_PAGE) {
-        hasMoreInDB = false;
-      }
-
-      if (nextChats.length > 0) {
-        allChats = [...allChats, ...nextChats];
-        visibleCount += nextChats.length;
-      }
+    // Check if aborted during delay
+    if (signal.aborted) {
+      isLoadingMore = false;
+      return;
     }
 
-    isLoadingMore = false;
+    try {
+      if (visibleCount < filteredChats.length) {
+        visibleCount += CHATS_PER_PAGE;
+      } else if (isSimpleView && hasMoreInDB) {
+        // Fetch next page
+        const currentLength = allChats.length;
+        const nextChats = await chatDB.getChats({
+          limit: CHATS_PER_PAGE,
+          offset: currentLength,
+        });
+
+        // Check if aborted after DB fetch
+        if (signal.aborted) return;
+
+        if (nextChats.length < CHATS_PER_PAGE) {
+          hasMoreInDB = false;
+        }
+
+        if (nextChats.length > 0) {
+          allChats = [...allChats, ...nextChats];
+          visibleCount += nextChats.length;
+        }
+      }
+    } finally {
+      if (!signal.aborted) {
+        isLoadingMore = false;
+        loadMoreAbortController = null;
+      }
+    }
   }
 
-  // Reset visible count when filters change
+  // Reset visible count when filters change - track filter dependencies
   $effect(() => {
-    // Reset to first page when filters change
-    visibleCount = CHATS_PER_PAGE;
+    // Read filter dependencies to track them
+    const _ = {
+      sortBy: filters.sortBy,
+      dateRange: filters.dateRange,
+      minCost: filters.minCost,
+      maxCost: filters.maxCost,
+      selectedModels: filters.selectedModels,
+      searchQuery: filters.searchQuery,
+      searchMode: filters.searchMode,
+    };
+    // Use untrack to prevent the write from triggering this effect again
+    untrack(() => {
+      visibleCount = CHATS_PER_PAGE;
+    });
   });
 
   // Reload all chats if we leave simple view and haven't loaded everything
