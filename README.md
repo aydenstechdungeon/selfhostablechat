@@ -64,7 +64,7 @@ A modern, feature-rich AI chat application built with SvelteKit and OpenRouter, 
 
 1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/aydenstechdungeon/selfhostablechat
 cd selfhostablechat
 ```
 
@@ -97,7 +97,7 @@ The easiest way to self-host this application is using Docker.
 
 1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/aydenstechdungeon/selfhostablechat
 cd selfhostablechat
 ```
 
