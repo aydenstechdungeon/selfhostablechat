@@ -2,7 +2,7 @@
 	import { ChevronDown, Check, Sparkles, Shield } from "lucide-svelte";
 	import {
 		modelStore,
-		AVAILABLE_MODELS,
+		allModelsStore,
 		isPrivacyFocusedModel,
 	} from "$lib/stores/modelStore";
 	import { settingsStore } from "$lib/stores/settingsStore";
@@ -78,7 +78,8 @@
 		"anthropic/claude-haiku-4.5": SiClaude,
 		// Gemini models
 		"google/gemini-2.5-flash-lite": SiGooglegemini,
-		"google/gemini-3-flash-preview": SiGooglegemini,
+		"google/gemini-3.0-flash": SiGooglegemini,
+		"google/gemini-3.1-pro-preview": SiGooglegemini,
 		"google/gemini-3-pro-preview": SiGooglegemini,
 		"google/gemini-3-pro-image-preview": SiGooglegemini,
 		"google/gemini-2.5-flash-image": SiGooglegemini,
@@ -103,7 +104,7 @@
 		) {
 			return `${$modelStore.selectedModels.length} models`;
 		} else if ($modelStore.selectedModels.length > 0) {
-			const model = AVAILABLE_MODELS.find(
+			const model = $allModelsStore.find(
 				(m) => m.id === $modelStore.selectedModels[0],
 			);
 			return model ? model.name : "Select Model";
@@ -124,7 +125,7 @@
 		if ($modelStore.autoMode || $modelStore.multiModelMode) {
 			return null;
 		} else if ($modelStore.selectedModels.length > 0) {
-			const model = AVAILABLE_MODELS.find(
+			const model = $allModelsStore.find(
 				(m) => m.id === $modelStore.selectedModels[0],
 			);
 			return model ? model.brand.toLowerCase() : null;
@@ -176,41 +177,43 @@
 		"minimax",
 	];
 
-	// Get unique brands from AVAILABLE_MODELS with custom ordering
-	const uniqueBrands = Array.from(
-		new Set(AVAILABLE_MODELS.map((m) => m.brand)),
+	// Get unique brands from allModelsStore with custom ordering
+	const uniqueBrands = $derived(
+		Array.from(new Set($allModelsStore.map((m) => m.brand))),
 	);
-	const sortedBrands = uniqueBrands.sort((a, b) => {
-		const aLower = a.toLowerCase();
-		const bLower = b.toLowerCase();
-		const aIndex = BRAND_ORDER.indexOf(aLower);
-		const bIndex = BRAND_ORDER.indexOf(bLower);
+	const sortedBrands = $derived(
+		uniqueBrands.sort((a, b) => {
+			const aLower = a.toLowerCase();
+			const bLower = b.toLowerCase();
+			const aIndex = BRAND_ORDER.indexOf(aLower);
+			const bIndex = BRAND_ORDER.indexOf(bLower);
 
-		// If both are in the order array, sort by their position
-		if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-		// If only a is in the order array, it comes first
-		if (aIndex !== -1) return -1;
-		// If only b is in the order array, it comes first
-		if (bIndex !== -1) return 1;
-		// Otherwise, alphabetical
-		return a.localeCompare(b);
-	});
+			// If both are in the order array, sort by their position
+			if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+			// If only a is in the order array, it comes first
+			if (aIndex !== -1) return -1;
+			// If only b is in the order array, it comes first
+			if (bIndex !== -1) return 1;
+			// Otherwise, alphabetical
+			return a.localeCompare(b);
+		}),
+	);
 
-	const brands = [
+	const brands = $derived([
 		{ id: "all", name: "All" },
 		{ id: "recommended", name: "Recommended" },
 		...sortedBrands.map((brand) => ({
 			id: brand.toLowerCase(),
 			name: brand,
 		})),
-	];
+	]);
 
 	// Get privacy setting from store
 	let zeroDataRetention = $derived($settingsStore.zeroDataRetention);
 
-	// Map AVAILABLE_MODELS to selector format with privacy filtering
+	// Map allModelsStore to selector format with privacy filtering
 	let models = $derived(() => {
-		const allModels = AVAILABLE_MODELS.map((m) => ({
+		const allModels = $allModelsStore.map((m) => ({
 			id: m.id,
 			name: m.name,
 			brand: m.brand.toLowerCase(),
@@ -223,6 +226,7 @@
 			supportsImages: m.supportsImages,
 			supportsImageGeneration: m.supportsImageGeneration,
 			privacyFocused: isPrivacyFocusedModel(m.id),
+			provider: (m as any).provider || "openrouter",
 		}));
 
 		// Filter by privacy setting if enabled
@@ -554,6 +558,18 @@
 								<span>{model.context}</span>
 								<span class="text-[#48bb78]">{model.price}</span
 								>
+								{#if model.supportsImageGeneration}
+									<span
+										class="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-medium whitespace-nowrap"
+										>Image</span
+									>
+								{/if}
+								{#if model.provider === "ollama"}
+									<span
+										class="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-medium whitespace-nowrap"
+										>Ollama</span
+									>
+								{/if}
 							</div>
 						</div>
 						{#if !$modelStore.multiModelMode && !autoMode && $modelStore.selectedModels.includes(model.id)}

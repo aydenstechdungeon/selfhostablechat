@@ -24,6 +24,7 @@ export interface CustomModel {
   isAutoSelectable?: boolean;
   isCustom: true;
   privacyFocused?: boolean;
+  provider?: 'openrouter' | 'ollama';
 }
 
 const STORAGE_KEY = 'modelStore';

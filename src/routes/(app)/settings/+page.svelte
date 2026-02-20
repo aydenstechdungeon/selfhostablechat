@@ -29,7 +29,7 @@
 		| "general"
 		| "features"
 		| "models"
-		| "api-keys"
+		| "connections"
 		| "appearance"
 		| "system-prompt"
 		| "privacy"
@@ -526,21 +526,21 @@
 				</button>
 				<button
 					class="px-4 py-3 text-left rounded-lg transition-all"
-					style:background-color={activeTab === "api-keys"
+					style:background-color={activeTab === "connections"
 						? activeBg
 						: "transparent"}
-					style:color={activeTab === "api-keys"
+					style:color={activeTab === "connections"
 						? "#4299e1"
 						: textSecondary}
 					onmouseenter={(e) =>
-						activeTab !== "api-keys" &&
+						activeTab !== "connections" &&
 						(e.currentTarget.style.backgroundColor = hoverBg)}
 					onmouseleave={(e) =>
-						activeTab !== "api-keys" &&
+						activeTab !== "connections" &&
 						(e.currentTarget.style.backgroundColor = "transparent")}
-					onclick={() => (activeTab = "api-keys")}
+					onclick={() => (activeTab = "connections")}
 				>
-					API Keys
+					Connections
 				</button>
 				<button
 					class="px-4 py-3 text-left rounded-lg transition-all"
@@ -1012,7 +1012,7 @@
 							</div>
 						</div>
 					</div>
-				{:else if activeTab === "api-keys"}
+				{:else if activeTab === "connections"}
 					<div class="tab-panel animate-fadeIn">
 						<ApiKeyManager {theme} />
 					</div>

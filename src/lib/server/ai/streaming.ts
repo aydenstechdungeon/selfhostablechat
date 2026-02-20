@@ -44,15 +44,20 @@ export interface MultiStreamChunk {
 
 const MODEL_COSTS: Record<string, { input: number; output: number }> = {
   'deepseek/deepseek-r1-distill-qwen-32b': { input: 0.0002, output: 0.0008 },
-  'x-ai/grok-4.1-fast': { input: 0.001, output: 0.005 },
+  'x-ai/grok-4.1-fast': { input: 0.0002, output: 0.0005 },
   'google/gemini-2.5-flash-lite': { input: 0.0001, output: 0.0004 },
-  'google/gemini-3-flash-preview': { input: 0.00015, output: 0.0006 },
-  'anthropic/claude-4.5-sonnet': { input: 0.003, output: 0.015 },
-  'openai/gpt-4o': { input: 0.01, output: 0.03 },
-  'openai/gpt-oss-20b': { input: 0.0005, output: 0.002 },
-  'google/gemini-2.5-flash-image': { input: 0.0002, output: 0.0008 },
-  'bytedance-seed/seedream-4.5': { input: 0.001, output: 0.003 },
-  'google/gemini-3-pro-image-preview': { input: 0, output: 0 }
+  'google/gemini-3.0-flash': { input: 0.0001, output: 0.0004 },
+  'google/gemini-3-flash-preview': { input: 0.0005, output: 0.003 },
+  'anthropic/claude-sonnet-4.6': { input: 0.003, output: 0.015 },
+  'anthropic/claude-opus-4.6': { input: 0.015, output: 0.075 },
+  'openai/gpt-4o': { input: 0.0025, output: 0.01 },
+  'openai/gpt-5.2': { input: 0.00175, output: 0.014 },
+  'google/gemini-2.5-flash-image': { input: 0.0003, output: 0.0025 },
+  'bytedance-seed/seedream-4.5': { input: 0.005, output: 0.005 },
+  'google/gemini-3-pro-image-preview': { input: 0.002, output: 0.012 },
+  'z-ai/glm-5': { input: 0.0003, output: 0.00255 },
+  'minimax/minimax-m2.5': { input: 0.0003, output: 0.0011 },
+  'deepseek/deepseek-v3.2': { input: 0.00026, output: 0.00038 }
 };
 
 function calculateCost(model: string, inputTokens: number, outputTokens: number): number {
@@ -76,6 +81,102 @@ export interface WebSearchConfig {
   searchContextSize?: 'low' | 'medium' | 'high';
 }
 
+async function* createOllamaStream(
+  ollamaUrl: string,
+  model: string,
+  messages: OpenRouterMessage[]
+): AsyncGenerator<StreamChunk> {
+  const startTime = Date.now();
+  let fullContent = '';
+
+  const ollamaMessages = messages.map(m => {
+    if (typeof m.content === 'string') {
+      return { role: m.role, content: m.content };
+    }
+    // Handle multimodal for ollama if supported
+    // For now extract text
+    let text = '';
+    let images: string[] = [];
+    for (const part of m.content) {
+      if (part.type === 'text') text += part.text;
+      if (part.type === 'image_url' && part.image_url?.url.startsWith('data:image/')) {
+        const base64 = part.image_url.url.split(',')[1];
+        images.push(base64);
+      }
+    }
+    return { role: m.role, content: text, images: images.length > 0 ? images : undefined };
+  });
+
+  const response = await fetch(`${ollamaUrl}/api/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: model.split('/').pop() || model, // remove provider prefix if any
+      messages: ollamaMessages,
+      stream: true,
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama error: ${response.statusText}`);
+  }
+
+  const reader = response.body?.getReader();
+  const decoder = new TextDecoder();
+
+  if (!reader) {
+    throw new Error('No response body from Ollama');
+  }
+
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const json = JSON.parse(line);
+        if (json.message?.content) {
+          fullContent += json.message.content;
+          yield {
+            type: 'content',
+            content: json.message.content,
+            model
+          };
+        }
+        if (json.done) {
+          const latency = Date.now() - startTime;
+          yield {
+            type: 'stats',
+            model,
+            stats: {
+              tokensInput: json.prompt_eval_count || 0,
+              tokensOutput: json.eval_count || 0,
+              cost: 0,
+              latency,
+              model
+            }
+          };
+        }
+      } catch (e) {
+        console.warn('Failed to parse Ollama line:', line);
+      }
+    }
+  }
+
+  yield {
+    type: 'done',
+    model
+  };
+}
+
 export async function* createSSEStream(
   apiKey: string,
   model: string,
@@ -83,8 +184,15 @@ export async function* createSSEStream(
   imageOptions?: ImageGenerationOptions,
   tools?: OpenRouterTool[],
   webSearch?: WebSearchConfig,
-  zeroDataRetention?: boolean
+  zeroDataRetention?: boolean,
+  ollamaUrl: string = 'http://localhost:11434',
+  customModels: any[] = []
 ): AsyncGenerator<StreamChunk> {
+  const customModel = customModels.find(m => m.id === model);
+  if (customModel?.provider === 'ollama') {
+    yield* createOllamaStream(ollamaUrl, model, messages);
+    return;
+  }
   const client = createOpenRouterClient(apiKey);
   const startTime = Date.now();
   let fullContent = '';
@@ -365,11 +473,13 @@ export async function* createMultiModelStream(
   imageOptions?: ImageGenerationOptions,
   tools?: OpenRouterTool[],
   webSearch?: WebSearchConfig,
-  zeroDataRetention?: boolean
+  zeroDataRetention?: boolean,
+  ollamaUrl: string = 'http://localhost:11434',
+  customModels: any[] = []
 ): AsyncGenerator<MultiStreamChunk> {
   const streams = models.map(model => ({
     model,
-    generator: createSSEStream(apiKey, model, messages, imageOptions, tools, webSearch, zeroDataRetention),
+    generator: createSSEStream(apiKey, model, messages, imageOptions, tools, webSearch, zeroDataRetention, ollamaUrl, customModels),
     stats: { tokensInput: 0, tokensOutput: 0, cost: 0, latency: 0, model }
   }));
 

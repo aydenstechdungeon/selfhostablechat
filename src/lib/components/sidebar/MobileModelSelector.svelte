@@ -2,7 +2,7 @@
     import { ChevronDown, Check, Sparkles } from "lucide-svelte";
     import {
         modelStore,
-        AVAILABLE_MODELS,
+        allModelsStore,
         isPrivacyFocusedModel,
     } from "$lib/stores/modelStore";
     import { settingsStore } from "$lib/stores/settingsStore";
@@ -56,7 +56,8 @@
         "anthropic/claude-sonnet-4.5": SiClaude,
         "anthropic/claude-haiku-4.5": SiClaude,
         "google/gemini-2.5-flash-lite": SiGooglegemini,
-        "google/gemini-3-flash-preview": SiGooglegemini,
+        "google/gemini-3.0-flash": SiGooglegemini,
+        "google/gemini-3.1-pro-preview": SiGooglegemini,
         "google/gemini-3-pro-preview": SiGooglegemini,
         "google/gemini-3-pro-image-preview": SiGooglegemini,
         "google/gemini-2.5-flash-image": SiGooglegemini,
@@ -70,10 +71,10 @@
     };
 
     // Get unique brands
-    const uniqueBrands = Array.from(
-        new Set(AVAILABLE_MODELS.map((m) => m.brand)),
+    const uniqueBrands = $derived(
+        Array.from(new Set($allModelsStore.map((m) => m.brand))),
     );
-    const brands = [
+    const brands = $derived([
         { id: "recommended", name: "Top" },
         ...uniqueBrands
             .sort((a, b) => a.localeCompare(b))
@@ -81,7 +82,7 @@
                 id: brand.toLowerCase(),
                 name: brand,
             })),
-    ];
+    ]);
 
     // Sync with chatStore
     $effect(() => {
@@ -109,7 +110,7 @@
         ) {
             return `${$modelStore.selectedModels.length} models`;
         } else if ($modelStore.selectedModels.length > 0) {
-            const model = AVAILABLE_MODELS.find(
+            const model = $allModelsStore.find(
                 (m) => m.id === $modelStore.selectedModels[0],
             );
             return model ? model.name : "Select Model";
@@ -126,7 +127,7 @@
     let currentModelBrand = $derived(() => {
         const modelId = currentModelId();
         if (!modelId) return null;
-        const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
+        const model = $allModelsStore.find((m) => m.id === modelId);
         return model ? model.brand.toLowerCase() : null;
     });
 
@@ -143,14 +144,17 @@
 
     // Filter models
     let models = $derived(() => {
-        const allModels = AVAILABLE_MODELS.map((m) => ({
+        const allModels = $allModelsStore.map((m) => ({
             id: m.id,
             name: m.name,
             brand: m.brand.toLowerCase(),
             recommended: m.category === "general" || m.category === "advanced",
             contextWindow: m.contextWindow,
             price: m.pricePer1M.input + m.pricePer1M.output,
+            supportsImages: m.supportsImages,
+            supportsImageGeneration: m.supportsImageGeneration,
             privacyFocused: isPrivacyFocusedModel(m.id),
+            provider: (m as any).provider || "openrouter",
         }));
 
         if (zeroDataRetention) {
@@ -445,6 +449,18 @@
                                 <span class="text-[#48bb78]"
                                     >${model.price.toFixed(2)}/1M</span
                                 >
+                                {#if model.supportsImageGeneration}
+                                    <span
+                                        class="text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-medium whitespace-nowrap"
+                                        >Image</span
+                                    >
+                                {/if}
+                                {#if model.provider === "ollama"}
+                                    <span
+                                        class="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 font-medium whitespace-nowrap"
+                                        >Ollama</span
+                                    >
+                                {/if}
                             </div>
                         </div>
                         {#if !$modelStore.multiModelMode && !autoMode && $modelStore.selectedModels.includes(model.id)}

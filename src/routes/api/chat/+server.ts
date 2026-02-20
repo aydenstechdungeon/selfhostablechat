@@ -232,7 +232,9 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
       systemPrompt,
       imageOptions,
       webSearch,
-      zeroDataRetention
+      zeroDataRetention,
+      ollamaUrl,
+      customModels = []
     } = body;
 
     if (!apiKey) {
@@ -272,7 +274,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
     // Validate model selections
     if (mode === 'manual' && models.length > 0) {
-      const invalidModels = models.filter((m: string) => !ALLOWED_MODELS.has(m));
+      const invalidModels = models.filter((m: string) => !ALLOWED_MODELS.has(m) && !customModels.some((c: any) => c.id === m));
       if (invalidModels.length > 0) {
         return json({
           error: 'Invalid model selection',
@@ -315,7 +317,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
 
         // Process the stream - title will be yielded after streaming completes
         // but both run in parallel
-        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions, tools, webSearch, zeroDataRetention)) {
+        for await (const chunk of createSSEStream(apiKey, routerDecision.model, conversationMessages, imageOptions, tools, webSearch, zeroDataRetention, ollamaUrl, customModels)) {
           yield chunk;
         }
 
@@ -361,7 +363,7 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) => {
         );
 
         // Process the stream
-        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools, webSearch, zeroDataRetention)) {
+        for await (const chunk of createMultiModelStream(apiKey, models, conversationMessages, imageOptions, tools, webSearch, zeroDataRetention, ollamaUrl, customModels)) {
           yield chunk as StreamChunk;
         }
 

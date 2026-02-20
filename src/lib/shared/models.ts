@@ -46,30 +46,136 @@ export function toOnlineModelId(modelId: string): string {
 }
 
 // Valid OpenRouter models (as of Jan 2026)
-export const AVAILABLE_MODELS = [
+export const AVAILABLE_MODELS: Model[] = [
     {
-        id: 'openai/gpt-oss-20b:free',
-        name: 'GPT OSS 20B Free',
-        displayName: 'GPT OSS 20B Free',
-        brand: 'OpenAI',
+        id: 'arcee-ai/trinity-mini:free',
+        name: 'Trinity Mini Free',
+        displayName: 'Trinity Mini Free',
+        brand: 'Arcee AI',
         category: 'general',
         capabilities: ['general', 'fast'],
         supportsImages: false,
-        contextWindow: 131072,
+        contextWindow: 128000,
         pricePer1M: { input: 0, output: 0 },
         isRecommended: true,
         isAutoSelectable: true
     },
     {
-        id: 'openai/gpt-oss-20b',
-        name: 'GPT OSS 20B',
-        displayName: 'GPT OSS 20B',
-        brand: 'OpenAI',
+        id: 'arcee-ai/trinity-mini',
+        name: 'Trinity Mini',
+        displayName: 'Trinity Mini',
+        brand: 'Arcee AI',
         category: 'general',
-        capabilities: ['general', 'fast'],
+        capabilities: ['general', 'fast', 'coding'],
         supportsImages: false,
-        contextWindow: 131072,
-        pricePer1M: { input: 0.075, output: 0.30 }
+        contextWindow: 128000,
+        pricePer1M: { input: 0.045, output: 0.15 }
+    },
+    {
+        id: 'arcee-ai/trinity-large-preview:free',
+        name: 'Trinity Large Preview Free',
+        displayName: 'Trinity Large Preview Free',
+        brand: 'Arcee AI',
+        category: 'general',
+        capabilities: ['general', 'coding'],
+        supportsImages: false,
+        contextWindow: 128000,
+        pricePer1M: { input: 0, output: 0 },
+        isRecommended: true
+    },
+    {
+        id: 'arcee-ai/trinity-large-preview',
+        name: 'Trinity Large Preview',
+        displayName: 'Trinity Large Preview',
+        brand: 'Arcee AI',
+        category: 'general',
+        capabilities: ['general', 'coding'],
+        supportsImages: false,
+        contextWindow: 128000,
+        pricePer1M: { input: 0.50, output: 1.50 }
+    },
+    {
+        id: 'deepseek/deepseek-r1-0528:free',
+        name: 'DeepSeek R1 0528 Free',
+        displayName: 'DeepSeek R1 0528 Free',
+        brand: 'DeepSeek',
+        category: 'general',
+        capabilities: ['general', 'coding'],
+        supportsImages: false,
+        contextWindow: 163840,
+        pricePer1M: { input: 0, output: 0 },
+        isRecommended: true
+    },
+    {
+        id: 'google/gemini-3.0-flash',
+        name: 'Gemini 3 Flash',
+        displayName: 'Gemini 3 Flash',
+        brand: 'Google',
+        category: 'general',
+        capabilities: ['general', 'vision', 'fast', 'coding'],
+        supportsImages: true,
+        contextWindow: 1048576,
+        pricePer1M: { input: 0.10, output: 0.40 }, // Updated to more realistic 2026 pricing
+        isRecommended: true
+    },
+    {
+        id: 'google/gemini-3-flash-preview',
+        name: 'Gemini 3 Flash Preview',
+        displayName: 'Gemini 3 Flash Preview',
+        brand: 'Google',
+        category: 'general',
+        capabilities: ['general', 'vision', 'fast', 'coding'],
+        supportsImages: true,
+        contextWindow: 1048576,
+        pricePer1M: { input: 0.50, output: 3.00 },
+        isRecommended: true
+    },
+    {
+        id: 'google/gemini-3.1-pro-preview',
+        name: 'Gemini 3.1 Pro',
+        displayName: 'Gemini 3.1 Pro',
+        brand: 'Google',
+        category: 'general',
+        capabilities: ['general', 'vision', 'coding', 'complex'],
+        supportsImages: true,
+        contextWindow: 2000000,
+        pricePer1M: { input: 2.00, output: 12.00 },
+        isRecommended: true
+    },
+    {
+        id: 'google/gemini-3-pro-preview',
+        name: 'Gemini 3 Pro',
+        displayName: 'Gemini 3 Pro',
+        brand: 'Google',
+        category: 'general',
+        capabilities: ['general', 'vision', 'coding', 'complex'],
+        supportsImages: true,
+        contextWindow: 2000000,
+        pricePer1M: { input: 2.00, output: 12.00 }
+    },
+    {
+        id: 'anthropic/claude-sonnet-4.6',
+        name: 'Claude Sonnet 4.6',
+        displayName: 'Claude Sonnet 4.6',
+        brand: 'Anthropic',
+        category: 'general',
+        capabilities: ['general', 'vision', 'coding', 'writing', 'complex'],
+        supportsImages: true,
+        contextWindow: 1000000,
+        pricePer1M: { input: 3.00, output: 15.00 },
+        isRecommended: true
+    },
+    {
+        id: 'anthropic/claude-opus-4.6',
+        name: 'Claude Opus 4.6',
+        displayName: 'Claude Opus 4.6',
+        brand: 'Anthropic',
+        category: 'advanced',
+        capabilities: ['general', 'vision', 'coding', 'writing', 'complex'],
+        supportsImages: true,
+        contextWindow: 1000000,
+        pricePer1M: { input: 15.00, output: 75.00 },
+        isRecommended: true
     },
     {
         id: 'openai/gpt-4o-mini',
@@ -80,13 +186,47 @@ export const AVAILABLE_MODELS = [
         capabilities: ['general', 'vision', 'fast'],
         supportsImages: true,
         contextWindow: 128000,
-        pricePer1M: { input: 0.15, output: 0.60 }
+        pricePer1M: { input: 0.15, output: 0.60 },
+        isRecommended: true
     },
-    // Popular third-party models (grok, moonshot, minimax moved up)
+    // Popular models from browser results
     {
-        id: 'x-ai/grok-4.1-fast',
-        name: 'Grok 4.1 Fast',
-        displayName: 'Grok 4.1 Fast',
+        id: 'openai/gpt-5-nano',
+        name: 'GPT-5 Nano',
+        displayName: 'GPT-5 Nano',
+        brand: 'OpenAI',
+        category: 'general',
+        capabilities: ['general', 'fast'],
+        supportsImages: false,
+        contextWindow: 128000,
+        pricePer1M: { input: 0.05, output: 0.40 }
+    },
+    {
+        id: 'openai/gpt-oss-120b',
+        name: 'GPT-OSS 120B',
+        displayName: 'GPT-OSS 120B',
+        brand: 'OpenAI',
+        category: 'general',
+        capabilities: ['general', 'coding'],
+        supportsImages: false,
+        contextWindow: 128000,
+        pricePer1M: { input: 0.039, output: 0.19 }
+    },
+    {
+        id: 'openai/gpt-5-mini',
+        name: 'GPT-5 Mini',
+        displayName: 'GPT-5 Mini',
+        brand: 'OpenAI',
+        category: 'general',
+        capabilities: ['general', 'fast'],
+        supportsImages: true,
+        contextWindow: 128000,
+        pricePer1M: { input: 0.25, output: 2.00 }
+    },
+    {
+        id: 'x-ai/grok-4-fast',
+        name: 'Grok 4 Fast',
+        displayName: 'Grok 4 Fast',
         brand: 'xAI',
         category: 'general',
         capabilities: ['general', 'fast'],
@@ -95,15 +235,63 @@ export const AVAILABLE_MODELS = [
         pricePer1M: { input: 0.20, output: 0.50 }
     },
     {
-        id: 'moonshotai/kimi-k2',
-        name: 'Kimi K2',
-        displayName: 'Kimi K2',
-        brand: 'Moonshot',
+        id: 'x-ai/grok-4.1-fast',
+        name: 'Grok 4.1 Fast',
+        displayName: 'Grok 4.1 Fast',
+        brand: 'xAI',
+        category: 'general',
+        capabilities: ['general', 'fast', 'vision', 'coding'],
+        supportsImages: true,
+        contextWindow: 2000000,
+        pricePer1M: { input: 0.20, output: 0.50 },
+        isRecommended: true,
+        isAutoSelectable: true
+    },
+    {
+        id: 'mistralai/mistral-nemo',
+        name: 'Mistral Nemo',
+        displayName: 'Mistral Nemo',
+        brand: 'Mistral',
+        category: 'general',
+        capabilities: ['general', 'fast'],
+        supportsImages: false,
+        contextWindow: 128000,
+        pricePer1M: { input: 0.02, output: 0.04 }
+    },
+    {
+        id: 'deepseek/deepseek-chat-v3-0324',
+        name: 'DeepSeek V3',
+        displayName: 'DeepSeek V3',
+        brand: 'DeepSeek',
         category: 'general',
         capabilities: ['general', 'coding'],
         supportsImages: false,
-        contextWindow: 262144,
-        pricePer1M: { input: 0.50, output: 2.80 }
+        contextWindow: 128000,
+        pricePer1M: { input: 0.14, output: 0.28 },
+        isRecommended: true
+    },
+    {
+        id: 'deepseek/deepseek-v3.2',
+        name: 'DeepSeek V3.2',
+        displayName: 'DeepSeek V3.2',
+        brand: 'DeepSeek',
+        category: 'general',
+        capabilities: ['general', 'coding', 'reasoning'],
+        supportsImages: false,
+        contextWindow: 163840,
+        pricePer1M: { input: 0.26, output: 0.38 },
+        isRecommended: true
+    },
+    {
+        id: 'google/gemini-2.5-pro',
+        name: 'Gemini 2.5 Pro',
+        displayName: 'Gemini 2.5 Pro',
+        brand: 'Google',
+        category: 'advanced',
+        capabilities: ['general', 'vision', 'coding', 'complex'],
+        supportsImages: true,
+        contextWindow: 1000000,
+        pricePer1M: { input: 1.25, output: 10.00 }
     },
     {
         id: 'moonshotai/kimi-k2.5',
@@ -114,7 +302,19 @@ export const AVAILABLE_MODELS = [
         capabilities: ['general', 'coding'],
         supportsImages: true,
         contextWindow: 262144,
-        pricePer1M: { input: 0.50, output: 2.80 }
+        pricePer1M: { input: 0.23, output: 3.00 }
+    },
+    {
+        id: 'minimax/minimax-m2.5',
+        name: 'MiniMax M2.5',
+        displayName: 'MiniMax M2.5',
+        brand: 'MiniMax',
+        category: 'general',
+        capabilities: ['general', 'coding', 'vision'],
+        supportsImages: true,
+        contextWindow: 196608,
+        pricePer1M: { input: 0.30, output: 1.10 },
+        isRecommended: true
     },
     {
         id: 'minimax/minimax-m2.1',
@@ -125,18 +325,7 @@ export const AVAILABLE_MODELS = [
         capabilities: ['general', 'coding'],
         supportsImages: false,
         contextWindow: 196608,
-        pricePer1M: { input: 0.27, output: 1.10 }
-    },
-    {
-        id: 'minimax/minimax-m2.5',
-        name: 'MiniMax M2.5',
-        displayName: 'MiniMax M2.5',
-        brand: 'MiniMax',
-        category: 'general',
-        capabilities: ['general', 'coding', 'vision'],
-        supportsImages: true,
-        contextWindow: 262144,
-        pricePer1M: { input: 0.30, output: 1.20 }
+        pricePer1M: { input: 0.27, output: 0.95 }
     },
     {
         id: 'openai/gpt-5.1',
@@ -158,18 +347,8 @@ export const AVAILABLE_MODELS = [
         capabilities: ['general', 'vision', 'coding', 'complex'],
         supportsImages: true,
         contextWindow: 400000,
-        pricePer1M: { input: 1.75, output: 14.00 }
-    },
-    {
-        id: 'openai/gpt-5.2-pro',
-        name: 'GPT-5.2 Pro',
-        displayName: 'GPT-5.2 Pro',
-        brand: 'OpenAI',
-        category: 'general',
-        capabilities: ['general', 'vision', 'coding', 'complex'],
-        supportsImages: true,
-        contextWindow: 400000,
-        pricePer1M: { input: 21.00, output: 168.00 }
+        pricePer1M: { input: 1.75, output: 14.00 },
+        isRecommended: true
     },
     {
         id: 'anthropic/claude-opus-4.5',
@@ -183,48 +362,16 @@ export const AVAILABLE_MODELS = [
         pricePer1M: { input: 5.00, output: 25.00 }
     },
     {
-        id: 'anthropic/claude-opus-4.6',
-        name: 'Claude Opus 4.6',
-        displayName: 'Claude Opus 4.6',
-        brand: 'Anthropic',
-        category: 'advanced',
-        capabilities: ['general', 'vision', 'coding', 'writing', 'complex'],
+        id: 'z-ai/glm-5',
+        name: 'GLM 5',
+        displayName: 'GLM 5',
+        brand: 'Z.AI',
+        category: 'general',
+        capabilities: ['general', 'coding', 'vision', 'complex'],
         supportsImages: true,
-        contextWindow: 400000,
-        pricePer1M: { input: 5.00, output: 25.00 }
-    },
-    {
-        id: 'deepseek/deepseek-v3.2',
-        name: 'DeepSeek V3.2',
-        displayName: 'DeepSeek V3.2',
-        brand: 'DeepSeek',
-        category: 'general',
-        capabilities: ['general', 'coding', 'math'],
-        supportsImages: false,
-        contextWindow: 163840,
-        pricePer1M: { input: 0.25, output: 0.38 }
-    },
-    {
-        id: 'meta-llama/llama-4-scout',
-        name: 'Llama 4 Scout',
-        displayName: 'Llama 4 Scout',
-        brand: 'Meta',
-        category: 'general',
-        capabilities: ['general', 'fast'],
-        supportsImages: false,
-        contextWindow: 327680,
-        pricePer1M: { input: 0.08, output: 0.30 }
-    },
-    {
-        id: 'meta-llama/llama-4-maverick',
-        name: 'Llama 4 Maverick',
-        displayName: 'Llama 4 Maverick',
-        brand: 'Meta',
-        category: 'general',
-        capabilities: ['general', 'coding'],
-        supportsImages: false,
-        contextWindow: 1048576,
-        pricePer1M: { input: 0.15, output: 0.60 }
+        contextWindow: 202752,
+        pricePer1M: { input: 0.30, output: 2.55 },
+        isRecommended: true
     },
     {
         id: 'z-ai/glm-4.7',
@@ -235,18 +382,7 @@ export const AVAILABLE_MODELS = [
         capabilities: ['general', 'coding'],
         supportsImages: false,
         contextWindow: 202752,
-        pricePer1M: { input: 0.40, output: 1.50 }
-    },
-    {
-        id: 'z-ai/glm-5',
-        name: 'GLM 5',
-        displayName: 'GLM 5',
-        brand: 'Z.AI',
-        category: 'general',
-        capabilities: ['general', 'coding', 'vision'],
-        supportsImages: true,
-        contextWindow: 400000,
-        pricePer1M: { input: 0.80, output: 2.56 }
+        pricePer1M: { input: 0.38, output: 1.70 }
     },
     {
         id: 'google/gemini-2.5-flash-lite',
@@ -260,39 +396,6 @@ export const AVAILABLE_MODELS = [
         pricePer1M: { input: 0.10, output: 0.40 }
     },
     {
-        id: 'google/gemini-3-flash-preview',
-        name: 'Gemini 3 Flash',
-        displayName: 'Gemini 3 Flash',
-        brand: 'Google',
-        category: 'general',
-        capabilities: ['general', 'vision', 'fast'],
-        supportsImages: true,
-        contextWindow: 1000000,
-        pricePer1M: { input: 0.50, output: 3.00 }
-    },
-    {
-        id: 'google/gemini-3-pro-preview',
-        name: 'Gemini 3 Pro',
-        displayName: 'Gemini 3 Pro',
-        brand: 'Google',
-        category: 'general',
-        capabilities: ['general', 'vision', 'coding', 'complex'],
-        supportsImages: true,
-        contextWindow: 2000000,
-        pricePer1M: { input: 2.00, output: 12.00 }
-    },
-    {
-        id: 'anthropic/claude-sonnet-4.5',
-        name: 'Claude Sonnet 4.5',
-        displayName: 'Claude Sonnet 4.5',
-        brand: 'Anthropic',
-        category: 'general',
-        capabilities: ['general', 'vision', 'coding', 'writing'],
-        supportsImages: true,
-        contextWindow: 1000000,
-        pricePer1M: { input: 3.00, output: 15.00 }
-    },
-    {
         id: 'anthropic/claude-haiku-4.5',
         name: 'Claude Haiku 4.5',
         displayName: 'Claude Haiku 4.5',
@@ -303,6 +406,7 @@ export const AVAILABLE_MODELS = [
         contextWindow: 200000,
         pricePer1M: { input: 1.00, output: 5.00 }
     },
+    // Image Generation Models
     {
         id: 'google/gemini-3-pro-image-preview',
         name: 'Nano Banana Pro',
@@ -333,41 +437,47 @@ export const AVAILABLE_MODELS = [
         imageConfig: {
             supportsAspectRatio: true,
             supportsImageSize: true
-        }
-    },
-    // Additional models for manual selection
-    {
-        id: 'openai/gpt-4o-2024-11-20',
-        name: 'GPT-4o',
-        displayName: 'GPT-4o',
-        brand: 'OpenAI',
-        category: 'general',
-        capabilities: ['general', 'vision', 'coding'],
-        supportsImages: true,
-        contextWindow: 128000,
-        pricePer1M: { input: 2.50, output: 10.00 }
+        },
+        isRecommended: true
     },
     {
-        id: 'mistralai/mistral-large-2512',
-        name: 'Mistral Large 3',
-        displayName: 'Mistral Large 3',
-        brand: 'Mistral',
-        category: 'general',
-        capabilities: ['general', 'coding'],
+        id: 'bytedance-seed/seedream-4.5',
+        name: 'Seedream 4.5',
+        displayName: 'Seedream 4.5',
+        brand: 'Bytedance',
+        category: 'image',
+        capabilities: ['image-generation'],
         supportsImages: false,
-        contextWindow: 262144,
-        pricePer1M: { input: 0.50, output: 1.50 }
+        supportsImageGeneration: true,
+        contextWindow: 4096,
+        pricePer1M: { input: 5.0, output: 5.0 },
+        imageConfig: { supportsAspectRatio: true, supportsImageSize: true }
     },
     {
-        id: 'qwen/qwen3-vl-235b-a22b-instruct',
-        name: 'Qwen3 VL 235B',
-        displayName: 'Qwen3 VL 235B',
-        brand: 'Qwen',
-        category: 'general',
-        capabilities: ['general', 'coding', 'math'],
-        supportsImages: true,
-        contextWindow: 262144,
-        pricePer1M: { input: 0.20, output: 1.20 }
+        id: 'openai/gpt-5-image-mini',
+        name: 'GPT-5 Image Mini',
+        displayName: 'GPT-5 Image Mini',
+        brand: 'OpenAI',
+        category: 'image',
+        capabilities: ['image-generation'],
+        supportsImages: false,
+        supportsImageGeneration: true,
+        contextWindow: 4096,
+        pricePer1M: { input: 2.5, output: 2.0 },
+        imageConfig: { supportsAspectRatio: true, supportsImageSize: true }
+    },
+    {
+        id: 'openai/gpt-5-image',
+        name: 'GPT-5 Image',
+        displayName: 'GPT-5 Image',
+        brand: 'OpenAI',
+        category: 'image',
+        capabilities: ['image-generation'],
+        supportsImages: false,
+        supportsImageGeneration: true,
+        contextWindow: 4096,
+        pricePer1M: { input: 10.0, output: 10.0 },
+        imageConfig: { supportsAspectRatio: true, supportsImageSize: true }
     },
     {
         id: 'perplexity/sonar-pro-search',
@@ -378,6 +488,8 @@ export const AVAILABLE_MODELS = [
         capabilities: ['reasoning', 'search'],
         supportsImages: false,
         contextWindow: 200000,
-        pricePer1M: { input: 3.00, output: 15.00 }
+        pricePer1M: { input: 3.00, output: 15.00 },
+        isRecommended: true
     }
 ];
+

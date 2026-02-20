@@ -5,7 +5,7 @@ import { chatDB } from './indexedDB';
 import { apiKeyStore } from './apiKeyStore';
 import { systemPromptStore } from './systemPromptStore';
 import { toastStore } from './toastStore';
-import { modelStore } from './modelStore';
+import { modelStore, customModelsStore } from './modelStore';
 import { settingsStore } from './settingsStore';
 import { streamingStore } from './streamingStore';
 import type { WebSearchConfig } from '$lib/server/ai/streaming';
@@ -675,6 +675,8 @@ const createChatStore = () => {
             mode,
             models: mode === 'manual' ? selectedModels : undefined,
             apiKey,
+            ollamaUrl: get(apiKeyStore).ollamaUrl || 'http://localhost:11434',
+            customModels: get(customModelsStore).models,
             conversationHistory,
             systemPrompt,
             imageOptions: currentImageOptions,
@@ -1128,6 +1130,8 @@ const createChatStore = () => {
             mode,
             models: mode === 'manual' ? selectedModels : undefined,
             apiKey,
+            ollamaUrl: get(apiKeyStore).ollamaUrl || 'http://localhost:11434',
+            customModels: get(customModelsStore).models,
             conversationHistory: conversationMessages,
             systemPrompt: systemPromptStore.getEffectivePrompt(),
             imageOptions: state!.imageOptions,

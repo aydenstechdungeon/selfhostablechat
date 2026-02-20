@@ -59,22 +59,25 @@ export const AVAILABLE_TOOLS = [IMAGE_CONVERSION_TOOL];
 const ROUTING_PROMPT = `You are a model routing assistant. Analyze the user's message and choose the BEST single model from this list:
 
 Available models:
-- x-ai/grok-4.1-fast: Best for general stuff like questions and stuff
-- google/gemini-2.5-flash-lite: Fast, efficient general purpose
-- google/gemini-3-flash-preview: Fast, good vision capabilities
-- anthropic/claude-4.5-sonnet: Best for coding and writing
-- google/gemini-3-pro-image-preview: Best for high-quality image generation (officailly nano banana pro; supports 4K, aspect ratios)
-- google/gemini-2.5-flash-image: Specialized for image analysis and vision tasks (officailly nano banana)
-- black-forest-labs/flux.2-pro: Professional image generation with excellent quality
-- black-forest-labs/flux.2-flex: Flexible image generation model
+- x-ai/grok-4.1-fast: Fast, best for general chat and quick questions
+- google/gemini-3.0-flash: Fast, good vision, great for general purpose
+- google/gemini-3-flash-preview: High performance flash model with deep knowledge
+- anthropic/claude-sonnet-4.6: Tier 1 for coding and writing
+- anthropic/claude-opus-4.6: Absolute best for complex reasoning and deep analysis
+- google/gemini-3-pro-image-preview: Best for high-quality image generation
+- google/gemini-2.5-flash-image: Best for general image generation
+- deepseek/deepseek-v3.2: Top-tier coding and logic assistant
+- minimax/minimax-m2.5: Strong all-rounder with excellent multimodal support
+- z-ai/glm-5: Versatile model for complex multitasking
+- openai/gpt-5.2: Top-tier general intelligence
 
 Guidelines:
-- For general questions, chat, and common tasks: grok-4.1-fast
-- For coding, technical writing, or complex prose: claude-4.5-sonnet
-- For quick queries or light tasks: gemini-2.5-flash-lite or gemini-3-flash-preview
-- For image generation requests (create, generate, draw an image): google/gemini-3-pro-image-preview or google/gemini-2.5-flash-image
-- For analyzing images: gemini-2.5-flash-image or gemini-3-flash-preview
-- For creative storytelling: bytedance-seed/seedream-4.5 or claude-4.5-sonnet
+- For general questions, chat, and common tasks: grok-4.1-fast or gemini-3.0-flash
+- For coding, technical writing, or complex prose: claude-sonnet-4.6 or deepseek-v3.2
+- For extremely complex reasoning or sensitive logic: claude-opus-4.6 or gpt-5.2
+- For image generation requests: google/gemini-3-pro-image-preview or google/gemini-2.5-flash-image
+- For analyzing images: gemini-3.0-flash or minimax-m2.5
+- For highest quality reasoning/output: gpt-5.2, claude-opus-4.6, or claude-sonnet-4.6
 
 Respond ONLY with JSON in this exact format:
 {

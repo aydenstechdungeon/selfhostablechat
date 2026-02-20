@@ -4,8 +4,8 @@ import { AUTO_SUPPORTED_MODELS, IMAGE_MODELS, IMAGE_GENERATION_MODELS } from '$l
 export { AUTO_SUPPORTED_MODELS, IMAGE_MODELS, IMAGE_GENERATION_MODELS };
 
 // Model used for routing decisions and chat title generation
-export const ROUTER_MODEL = 'openai/gpt-oss-20b'; // The selector model
-export const SUMMARIZER_MODEL = 'openai/gpt-oss-20b'; // The namer/summarizer of the chat
+export const ROUTER_MODEL = 'arcee-ai/trinity-mini:free'; // The selector model
+export const SUMMARIZER_MODEL = 'arcee-ai/trinity-mini:free'; // The namer/summarizer of the chat
 
 export interface OpenRouterMessage {
   role: 'user' | 'assistant' | 'system';

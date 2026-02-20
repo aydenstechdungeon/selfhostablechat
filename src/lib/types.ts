@@ -214,14 +214,16 @@ export interface Model {
   category: string;
   icon?: string;
   contextWindow: number;
-  costPerToken: {
+  pricePer1M: {
     input: number;
     output: number;
   };
   capabilities: string[];
   isRecommended?: boolean;
+  isAutoSelectable?: boolean;
   supportsImageGeneration?: boolean;
   supportsImages?: boolean;
+  provider?: 'openrouter' | 'ollama';
   imageConfig?: {
     supportsAspectRatio?: boolean;
     supportsImageSize?: boolean;
@@ -351,42 +353,52 @@ export interface BoxPlotData {
 // Models that support image input (vision models)
 export const IMAGE_MODELS = [
   'google/gemini-2.5-flash-lite',
+  'google/gemini-3.0-flash',
   'google/gemini-3-flash-preview',
   'google/gemini-3-pro-preview',
   'openai/gpt-4o-mini',
+  'openai/gpt-5-mini',
   'openai/gpt-5.1',
   'openai/gpt-5.2',
-  'openai/gpt-5.2-pro',
-  'anthropic/claude-sonnet-4.5',
+  'anthropic/claude-sonnet-4.6',
+  'anthropic/claude-opus-4.6',
   'anthropic/claude-opus-4.5',
   'google/gemini-2.5-flash-image',
   'google/gemini-3-pro-image-preview',
-  'moonshotai/kimi-k2.5'
+  'moonshotai/kimi-k2.5',
+  'minimax/minimax-m2.5',
+  'z-ai/glm-5',
+  'x-ai/grok-4.1-fast'
 ] as const;
 
 // Models that can generate images
 export const IMAGE_GENERATION_MODELS = [
   'google/gemini-2.5-flash-image',
-  'google/gemini-3-pro-image-preview'
+  'google/gemini-3-pro-image-preview',
+  'bytedance-seed/seedream-4.5',
+  'openai/gpt-5-image-mini',
+  'openai/gpt-5-image'
 ] as const;
 
 export const AUTO_SUPPORTED_MODELS = [
-  'openai/gpt-oss-20b:free',
-  'openai/gpt-oss-20b',
+  'arcee-ai/trinity-mini:free',
+  'arcee-ai/trinity-mini',
+  'arcee-ai/trinity-large-preview:free',
+  'deepseek/deepseek-r1-0528:free',
   'openai/gpt-4o-mini',
+  'openai/gpt-5-nano',
   'openai/gpt-5.1',
   'openai/gpt-5.2',
-  'openai/gpt-5.2-pro',
-  'x-ai/grok-4.1-fast',
   'google/gemini-2.5-flash-lite',
+  'google/gemini-3.0-flash',
   'google/gemini-3-flash-preview',
-  'anthropic/claude-sonnet-4.5',
+  'google/gemini-3-pro-preview',
+  'anthropic/claude-sonnet-4.6',
+  'anthropic/claude-opus-4.6',
   'anthropic/claude-opus-4.5',
-  'google/gemini-3-pro-image-preview',
-  'google/gemini-2.5-flash-image',
+  'deepseek/deepseek-chat-v3-0324',
   'deepseek/deepseek-v3.2',
-  'meta-llama/llama-4-scout',
-  'meta-llama/llama-4-maverick',
-  'moonshotai/kimi-k2.5',
-  'minimax/minimax-m2.1'
+  'x-ai/grok-4.1-fast',
+  'minimax/minimax-m2.5',
+  'z-ai/glm-5'
 ] as const;
